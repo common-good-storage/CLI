@@ -78,7 +78,7 @@ fn run(opts: Opts) {
 
             println!("client public key: {:?}", HexString(&kp.public.to_bytes()));
             println!("deal proposal:     {:?}", deal_proposal);
-            println!("signed:            {:?}", HexString(&signature));
+            println!("signature:         {:?}", HexString(&signature));
         }
         Command::MinerVerifyPublish {
             client: AnyKey::Sr25519(client_pk_arr),
@@ -130,7 +130,7 @@ fn run(opts: Opts) {
 
             println!("deal proposal:   {:?}", deal_proposal);
             println!("deal:            {:?}", HexString(deal.as_slice()));
-            println!("signed:          {:?}", HexString(&deal_sig[..]));
+            println!("signature:       {:?}", HexString(&deal_sig[..]));
         }
     }
 }
