@@ -93,7 +93,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "common-good-cli"
+name = "common-good-storage-cli"
 version = "0.1.0"
 dependencies = [
  "hex",

@@ -1,0 +1,35 @@
+on: [push, pull_request]
+
+name: Checks
+
+jobs:
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install rust
+        uses: hecrj/setup-rust-action@v1.3.4
+        with:
+          rust-version: stable
+          targets: x86_64-unknown-linux-gnu
+          components: clippy, rustfmt
+
+      # we might end up needing more of these if we need different sets of features
+      - name: cargo check
+        run: cargo check --workspace --all-targets
+
+      # not building anything except the tests, which should be a superset of cargo build
+      - name: cargo test
+        run: cargo test --workspace --all-targets --all-features
+
+      - name: rustfmt check
+        continue-on-error: true
+        run: cargo fmt --all -- --check
+
+      - name: clippy check
+        continue-on-error: true
+        run: cargo clippy --workspace --all-targets
