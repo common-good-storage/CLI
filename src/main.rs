@@ -1,3 +1,4 @@
+use codec::{Decode, Encode};
 use std::fmt;
 use std::str::FromStr;
 use structopt::StructOpt;
@@ -14,26 +15,27 @@ struct Opts {
 
 #[derive(Debug, StructOpt)]
 enum Command {
-    // this is signed by the client
+    // TODO: some fields are omitted in this phase
+    // VerifiedDeal: bool,    indicate that the deal counts towards verified client total
+    // StoragePricePerEpoch abi.TokenAmount
+    // ProviderCollateral abi.TokenAmount
+    // ClientCollateral   abi.TokenAmount
+    /// This is signed by the client
     ClientProposeDeal {
-        client_key: AnyKey,
-        // lets just pretend this is the commP cid
-        comm_p: AnyHex,
-        /*
-        commP: (), // root cid for the file
-        padded_piece_size: u64,
-        verified_deal: bool,
-        client: (), // address
-        miner: (),  // address
-        price_per_epoch: u64,
-        clent_collateral: u64,
-        miner_collateral: u64,
-        */
+        client_key: AnyKey,     // client's private key
+        comm_p: AnyHex,         // lets just pretend this is the commP cid
+        padded_piece_size: u64, // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
+        miner: AnyKey,          // miner's public key i.e. 32 bytes
+        start_block: u64, // this type needs to match frame_system::BlockNumber defined in runtime
+        end_block: u64,   // frame_support::pallet_prelude::BlockNumberFor
     },
     MinerVerifyPublish {
-        client_key: AnyKey,
-        miner_key: AnyKey,
+        client: AnyKey,    // client's public key
+        miner_key: AnyKey, // miner's private key
         comm_p: AnyHex,
+        padded_piece_size: u64,
+        start_block: u64,
+        end_block: u64,
         signature: AnyHex,
     },
 }
@@ -50,6 +52,10 @@ fn run(opts: Opts) {
         Command::ClientProposeDeal {
             client_key: AnyKey::Sr25519(client_sk),
             comm_p,
+            padded_piece_size,
+            miner,
+            start_block,
+            end_block,
         } => {
             // lets just sign the fake cid
             let kp = schnorrkel::keys::MiniSecretKey::from_bytes(&client_sk[..])
@@ -57,32 +63,54 @@ fn run(opts: Opts) {
                 .expand(schnorrkel::keys::ExpansionMode::Ed25519)
                 .to_keypair();
 
+            let deal_proposal = DealProposal {
+                comm_p,
+                padded_piece_size,
+                client: AnyKey::Sr25519(kp.public.to_bytes()),
+                miner,
+                start_block,
+                end_block,
+            };
+
             let signature = kp
-                .sign_simple(SIMPLE_PROPOSAL_CONTEXT, comm_p.as_ref())
+                .sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode())
                 .to_bytes();
 
-            println!("public key: {:?}", HexString(&kp.public.to_bytes()));
-            println!("deal:       {:?}", HexString(comm_p.as_ref()));
-            println!("signed:     {:?}", HexString(&signature));
+            println!("client public key: {:?}", HexString(&kp.public.to_bytes()));
+            println!("deal proposal:     {:?}", deal_proposal);
+            println!("signed:            {:?}", HexString(&signature));
         }
         Command::MinerVerifyPublish {
-            client_key: AnyKey::Sr25519(client_pk),
-            miner_key: AnyKey::Sr25519(miner_sk),
+            client: AnyKey::Sr25519(client_pk_arr),
+            miner_key: AnyKey::Sr25519(miner_sk_arr),
             comm_p,
+            padded_piece_size,
+            start_block,
+            end_block,
             signature: AnyHex(orig_signature),
         } => {
             let signature = schnorrkel::sign::Signature::from_bytes(&orig_signature[..])
                 .expect("Signature conversion failed");
 
-            let client_pk = schnorrkel::keys::PublicKey::from_bytes(&client_pk[..])
+            let client_pk = schnorrkel::keys::PublicKey::from_bytes(&client_pk_arr[..])
                 .expect("PublicKey conversion failed for client_key");
 
-            let miner_sk = schnorrkel::keys::MiniSecretKey::from_bytes(&miner_sk[..])
+            let miner_kp = schnorrkel::keys::MiniSecretKey::from_bytes(&miner_sk_arr[..])
                 .expect("SecretKey conversion failed for miner_key")
-                .expand(schnorrkel::keys::ExpansionMode::Ed25519);
+                .expand(schnorrkel::keys::ExpansionMode::Ed25519)
+                .to_keypair();
+
+            let deal_proposal = DealProposal {
+                comm_p,
+                padded_piece_size,
+                client: AnyKey::Sr25519(client_pk_arr),
+                miner: AnyKey::Sr25519(miner_kp.public.to_bytes()),
+                start_block,
+                end_block,
+            };
 
             client_pk
-                .verify_simple(SIMPLE_PROPOSAL_CONTEXT, comm_p.as_ref(), &signature)
+                .verify_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode(), &signature)
                 .expect("Invalid signature");
 
             // now we indicate intent to accept deal to the client
@@ -92,23 +120,22 @@ fn run(opts: Opts) {
             let deal = {
                 // just concatenate these together
                 let mut deal =
-                    Vec::<u8>::with_capacity(comm_p.as_ref().len() + orig_signature.len());
-                deal.extend(comm_p.as_ref());
+                    Vec::<u8>::with_capacity(deal_proposal.encode().len() + orig_signature.len());
+                deal.extend(deal_proposal.encode());
                 deal.extend(&orig_signature[..]);
                 deal
             };
 
-            let deal_sig = miner_sk
-                .to_keypair()
-                .sign_simple(SIMPLE_DEAL_CONTEXT, &deal)
-                .to_bytes();
+            let deal_sig = miner_kp.sign_simple(SIMPLE_DEAL_CONTEXT, &deal).to_bytes();
 
-            println!("deal:   {:?}", HexString(deal.as_slice()));
-            println!("signed: {:?}", HexString(&deal_sig[..]));
+            println!("deal proposal:   {:?}", deal_proposal);
+            println!("deal:            {:?}", HexString(deal.as_slice()));
+            println!("signed:          {:?}", HexString(&deal_sig[..]));
         }
     }
 }
 
+#[derive(Encode, Decode)]
 enum AnyKey {
     Sr25519([u8; 32]),
 }
@@ -192,6 +219,7 @@ impl FromStr for AnySignature {
     }
 }
 
+#[derive(Encode, Decode)]
 struct AnyHex(Vec<u8>);
 
 impl AsRef<[u8]> for AnyHex {
@@ -225,4 +253,14 @@ impl fmt::Debug for HexString<'_> {
         }
         Ok(())
     }
+}
+
+#[derive(Debug, Encode, Decode)]
+struct DealProposal {
+    comm_p: AnyHex,
+    padded_piece_size: u64, // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
+    client: AnyKey, // Public key - AccountId - https://substrate.dev/docs/en/knowledgebase/integrate/subkey#generating-keys
+    miner: AnyKey,  // Public key i.e. 32 bytes
+    start_block: u64, // this type needs to match frame_system::BlockNumber defined in runtime
+    end_block: u64, // frame_support::pallet_prelude::BlockNumberFor
 }

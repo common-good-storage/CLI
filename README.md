@@ -1,31 +1,55 @@
 # common-good-storage - offchain signing
 
+## Client propose a deal
+
 ```sh
+# Args:
+#    client_key: AnyKey,     // client's private key
+#    comm_p: AnyHex,         // lets just pretend this is the commP cid
+#    padded_piece_size: u64, // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
+#    miner: AnyKey,          // miner's public key i.e. 32 bytes
+#    start_block: u64, // this type needs to match frame_system::BlockNumber defined in runtime
+#    end_block: u64,   // frame_support::pallet_prelude::BlockNumberFor
+
 $ cargo run --quiet client-propose-deal \
   sr25519:554b6fc625fbea8f56eb56262d92ccb083fd6eaaf5ee9a966eaab4db2062f4d0 \
-  abcd
-public key: 143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
-deal:       abcd
-signed:     ec975e3564e5803727d90314603a02fc4640a7643943cf96d94babf893b4d15815bf00aeeb61730f5c14c92fe44df09469b5c661102e91026b20a0e64b0bde80
+  abcd \
+  128 \
+  sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d \
+  10000 \
+  20000
+
+client public key: 143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
+deal proposal:     DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Sr25519, miner: Sr25519, start_block: 10000, end_block: 20000 }
+signature:         46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f
 ```
 
-and if we take that clients public key (143fa...) and the signed abcd "document" (ec975...) to the next phase with the arguments:
-
-1. client_key sr25519:143fa...
-1. miner_key sr25519:e5be9a.... (this is the well-known //Alice secret seed)
-1. same original document abcd masquerading as comm_p
-1. the signature from the first step ec975...
+and if we take that clients public key (143fa...) and the signed deal proposal (46b2...) to the next phase with the arguments:
 
 ```sh
+# Args: 
+#     client: AnyKey,          // client's public key
+#     miner_key: AnyKey,       // miner's private key
+#     comm_p: AnyHex,          // same as previous step
+#     padded_piece_size: u64,  // same as previous step
+#     start_block: u64,        // same as previous step
+#     end_block: u64,          // same as previous step
+#     signature: AnyHex,       // the signature from the client in the previous step
+
 $ cargo run --quiet miner-verify-publish \
   sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559 \
   sr25519:e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a \
   abcd \
-  ec975e3564e5803727d90314603a02fc4640a7643943cf96d94babf893b4d15815bf00aeeb61730f5c14c92fe44df09469b5c661102e91026b20a0e64b0bde80
-deal:   abcdec975e3564e5803727d90314603a02fc4640a7643943cf96d94babf893b4d15815bf00aeeb61730f5c14c92fe44df09469b5c661102e91026b20a0e64b0bde80
-signed: 3855ab55fb8ae603944e52451de7d91f417a2e174b77737ef70dc7a4d36d634cea23f80e1c84ceabfac582e09842dc18881598052ad6c38ad588c36f1bddc682
+  128 \
+  10000 \
+  20000 \
+  46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f
 
+deal proposal:   DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Sr25519, miner: Sr25519, start_block: 10000, end_block: 20000 }
+deal:            08abcd800000000000000000143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a55900d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d1027000000000000204e00000000000046b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f
+signature:       887762bd996054b319e97743cf50b4586f3de17a23195c588d1c6153a10aa273e273d6803ff83639e5b17b7b9e336aa14da61cd8d9cced93b945babadcb0d281
 ```
-This is just the basic `sign(sign(b"abcd", client_key), miner_key)`, don't really know about the multisig sr25519 yet. 
-The `deal:` in the output is the `b"abcd".iter().chain(signature_by_client)` and `signed ` is the outer signature for it.
+
+This is just the basic `sign(sign(encoded(deal_proposal), client_key), miner_key)`, TODO: don't really know about the multisig sr25519 yet. 
+The `encoded deal:` in the output is the `deal_proposal.encode().chain(signature_by_client)` where deal_proposal is SCALE encoded and `signature` is the outer signature for it.
 
