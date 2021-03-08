@@ -22,12 +22,18 @@ enum Command {
     // ClientCollateral   abi.TokenAmount
     /// This is signed by the client
     ClientProposeDeal {
-        client_key: AnyKey,     // client's private key
-        comm_p: AnyHex,         // lets just pretend this is the commP cid
-        padded_piece_size: u64, // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
-        miner: AnyKey,          // miner's public key i.e. 32 bytes
-        start_block: u64, // this type needs to match frame_system::BlockNumber defined in runtime
-        end_block: u64,   // frame_support::pallet_prelude::BlockNumberFor
+        // client's private key
+        client_key: AnyKey,
+        // lets just pretend this is the commP cid
+        comm_p: AnyHex,
+        // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
+        padded_piece_size: u64,
+        // miner's public key i.e. 32 bytes
+        miner: AnyKey,
+        // this type needs to match frame_system::BlockNumber defined in runtime
+        start_block: u64,
+        // frame_support::pallet_prelude::BlockNumberFor
+        end_block: u64,
     },
     MinerVerifyPublish {
         client: AnyKey,    // client's public key
