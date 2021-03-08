@@ -403,3 +403,44 @@ struct DealProposal {
     // frame_support::pallet_prelude::BlockNumberFor
     end_block: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{AnyHex, AnyKey, ClientProposeDeal, MinerVerifyPublish};
+    use std::str::FromStr;
+
+    #[test]
+    fn example_client_propose_deal() {
+        let client_sk = "sr25519:554b6fc625fbea8f56eb56262d92ccb083fd6eaaf5ee9a966eaab4db2062f4d0";
+        let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
+        let cmd = ClientProposeDeal {
+            client_key: AnyKey::from_str(client_sk).unwrap(),
+            comm_p: AnyHex::from_str("abcd").unwrap(),
+            padded_piece_size: 128,
+            miner: AnyKey::from_str(miner_pk).unwrap(),
+            start_block: 10_000,
+            end_block: 20_000,
+        };
+
+        cmd.run().unwrap();
+    }
+
+    #[test]
+    fn example_miner_verify_publish() {
+        let client_pk = "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559";
+        let miner_sk = "sr25519:e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a";
+        let sig = "46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f";
+
+        let cmd = MinerVerifyPublish {
+            client: AnyKey::from_str(client_pk).unwrap(),
+            miner_key: AnyKey::from_str(miner_sk).unwrap(),
+            comm_p: AnyHex::from_str("abcd").unwrap(),
+            padded_piece_size: 128,
+            start_block: 10_000,
+            end_block: 20_000,
+            signature: AnyHex::from_str(sig).unwrap(),
+        };
+
+        cmd.run().unwrap();
+    }
+}
