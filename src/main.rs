@@ -92,6 +92,28 @@ fn main() {
     run(Opts::from_args())
 }
 
+#[derive(Debug)]
+struct ProposableDeal {
+    deal_proposal: DealProposal,
+    signature: schnorrkel::sign::Signature,
+}
+
+impl fmt::Display for ProposableDeal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(
+            fmt,
+            "client public key:   {:?}",
+            HexString(self.deal_proposal.client.as_ref())
+        )?;
+        writeln!(fmt, "deal:            {:?}", self.deal_proposal)?;
+        writeln!(
+            fmt,
+            "signature:       {:?}",
+            HexString(&self.signature.to_bytes()[..])
+        )
+    }
+}
+
 impl ClientProposeDeal {
     fn run<W: Write>(self, mut out: W) -> Result<(), DealProposeError> {
         match self {
@@ -117,23 +139,41 @@ impl ClientProposeDeal {
                     end_block,
                 };
 
-                let signature = kp
-                    .sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode())
-                    .to_bytes();
+                let signature = kp.sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode());
 
-                writeln!(
-                    out,
-                    "client public key: {:?}\n\
-                     deal proposal:     {:?}\n\
-                     signature:         {:?}",
-                    HexString(&kp.public.to_bytes()),
+                let resp = ProposableDeal {
                     deal_proposal,
-                    HexString(&signature),
-                )
-                .expect("output writing failed");
+                    signature,
+                };
+
+                writeln!(out, "{}", resp).expect("output writing failed");
+
+                Ok(())
             }
         }
-        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct PublishableDeal {
+    deal_proposal: DealProposal,
+    serialized_deal: Vec<u8>,
+    deal_signature: schnorrkel::sign::Signature,
+}
+
+impl fmt::Display for PublishableDeal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(fmt, "deal proposal:   {:?}", self.deal_proposal)?;
+        writeln!(
+            fmt,
+            "deal:            {:?}",
+            HexString(self.serialized_deal.as_slice())
+        )?;
+        writeln!(
+            fmt,
+            "signature:       {:?}",
+            HexString(&self.deal_signature.to_bytes()[..])
+        )
     }
 }
 
@@ -187,18 +227,15 @@ impl MinerVerifyPublish {
                     deal
                 };
 
-                let deal_sig = miner_kp.sign_simple(SIMPLE_DEAL_CONTEXT, &deal).to_bytes();
+                let deal_sig = miner_kp.sign_simple(SIMPLE_DEAL_CONTEXT, &deal);
 
-                writeln!(
-                    out,
-                    "deal proposal:   {:?}\n\
-                     deal:            {:?}\n\
-                     signature:       {:?}",
+                let resp = PublishableDeal {
                     deal_proposal,
-                    HexString(deal.as_slice()),
-                    HexString(&deal_sig[..])
-                )
-                .expect("output writing failed");
+                    serialized_deal: deal,
+                    deal_signature: deal_sig,
+                };
+
+                writeln!(out, "{}", resp).expect("output writing failed");
 
                 Ok(())
             }
@@ -244,6 +281,16 @@ impl FromStr for AnyKey {
         };
 
         Ok(key)
+    }
+}
+
+impl AsRef<[u8]> for AnyKey {
+    fn as_ref(&self) -> &[u8] {
+        // this method is ... not great if the input was a minisecretkey, but then again, we are
+        // reading all of them on the command line at the moment.
+        match self {
+            AnyKey::Sr25519(x) => x,
+        }
     }
 }
 
