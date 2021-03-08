@@ -36,8 +36,10 @@ enum Command {
         end_block: u64,
     },
     MinerVerifyPublish {
-        client: AnyKey,    // client's public key
-        miner_key: AnyKey, // miner's private key
+        // client's public key
+        client: AnyKey,
+        // miner's private key
+        miner_key: AnyKey,
         comm_p: AnyHex,
         padded_piece_size: u64,
         start_block: u64,
@@ -264,9 +266,14 @@ impl fmt::Debug for HexString<'_> {
 #[derive(Debug, Encode, Decode)]
 struct DealProposal {
     comm_p: AnyHex,
-    padded_piece_size: u64, // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
-    client: AnyKey, // Public key - AccountId - https://substrate.dev/docs/en/knowledgebase/integrate/subkey#generating-keys
-    miner: AnyKey,  // Public key i.e. 32 bytes
-    start_block: u64, // this type needs to match frame_system::BlockNumber defined in runtime
-    end_block: u64, // frame_support::pallet_prelude::BlockNumberFor
+    // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
+    padded_piece_size: u64,
+    // Public key - AccountId - https://substrate.dev/docs/en/knowledgebase/integrate/subkey#generating-keys
+    client: AnyKey,
+    // Public key i.e. 32 bytes
+    miner: AnyKey,
+    // this type needs to match frame_system::BlockNumber defined in runtime
+    start_block: u64,
+    // frame_support::pallet_prelude::BlockNumberFor
+    end_block: u64,
 }
