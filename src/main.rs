@@ -1,5 +1,6 @@
 use codec::{Decode, Encode};
 use std::fmt;
+use std::io::Write;
 use std::str::FromStr;
 use structopt::StructOpt;
 
@@ -21,32 +22,68 @@ enum Command {
     // ProviderCollateral abi.TokenAmount
     // ClientCollateral   abi.TokenAmount
     /// This is signed by the client
-    ClientProposeDeal {
-        // client's private key
-        client_key: AnyKey,
-        // lets just pretend this is the commP cid
-        comm_p: AnyHex,
-        // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
-        padded_piece_size: u64,
-        // miner's public key i.e. 32 bytes
-        miner: AnyKey,
-        // this type needs to match frame_system::BlockNumber defined in runtime
-        start_block: u64,
-        // frame_support::pallet_prelude::BlockNumberFor
-        end_block: u64,
-    },
-    MinerVerifyPublish {
-        // client's public key
-        client: AnyKey,
-        // miner's private key
-        miner_key: AnyKey,
-        comm_p: AnyHex,
-        padded_piece_size: u64,
-        start_block: u64,
-        end_block: u64,
-        signature: AnyHex,
-    },
+    ClientProposeDeal(ClientProposeDeal),
+    MinerVerifyPublish(MinerVerifyPublish),
 }
+
+#[derive(Debug, StructOpt)]
+struct ClientProposeDeal {
+    // client's private key
+    client_key: AnyKey,
+    // lets just pretend this is the commP cid
+    comm_p: AnyHex,
+    // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
+    padded_piece_size: u64,
+    // miner's public key i.e. 32 bytes
+    miner: AnyKey,
+    // this type needs to match frame_system::BlockNumber defined in runtime
+    start_block: u64,
+    // frame_support::pallet_prelude::BlockNumberFor
+    end_block: u64,
+}
+
+#[derive(Debug)]
+enum DealProposeError {
+    // none at this time before we add key types
+}
+
+impl fmt::Display for DealProposeError {
+    fn fmt(&self, _fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        unreachable!()
+    }
+}
+
+impl std::error::Error for DealProposeError {}
+
+#[derive(Debug, StructOpt)]
+struct MinerVerifyPublish {
+    // client's public key
+    client: AnyKey,
+    // miner's private key
+    miner_key: AnyKey,
+    comm_p: AnyHex,
+    padded_piece_size: u64,
+    start_block: u64,
+    end_block: u64,
+    signature: AnyHex,
+}
+
+#[derive(Debug)]
+enum ProposalVerifyError {
+    InvalidSignature,
+}
+
+impl fmt::Display for ProposalVerifyError {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ProposalVerifyError::*;
+        match self {
+            // not sure if the nested reason matters?
+            InvalidSignature => write!(fmt, "Invalid client signature"),
+        }
+    }
+}
+
+impl std::error::Error for ProposalVerifyError {}
 
 static SIMPLE_PROPOSAL_CONTEXT: &[u8] = b"example starts: proposal";
 static SIMPLE_DEAL_CONTEXT: &[u8] = b"example continues: deal";
@@ -55,91 +92,132 @@ fn main() {
     run(Opts::from_args())
 }
 
-fn run(opts: Opts) {
-    match opts.command {
-        Command::ClientProposeDeal {
-            client_key: AnyKey::Sr25519(client_sk),
-            comm_p,
-            padded_piece_size,
-            miner,
-            start_block,
-            end_block,
-        } => {
-            // lets just sign the fake cid
-            let kp = schnorrkel::keys::MiniSecretKey::from_bytes(&client_sk[..])
-                .expect("SecretKey conversion failed")
-                .expand(schnorrkel::keys::ExpansionMode::Ed25519)
-                .to_keypair();
-
-            let deal_proposal = DealProposal {
+impl ClientProposeDeal {
+    fn run<W: Write>(self, mut out: W) -> Result<(), DealProposeError> {
+        match self {
+            ClientProposeDeal {
+                client_key: AnyKey::Sr25519(client_sk),
                 comm_p,
                 padded_piece_size,
-                client: AnyKey::Sr25519(kp.public.to_bytes()),
                 miner,
                 start_block,
                 end_block,
-            };
+            } => {
+                let kp = schnorrkel::keys::MiniSecretKey::from_bytes(&client_sk[..])
+                    .expect("SecretKey needs 32 bytes, cannot fail")
+                    .expand(schnorrkel::keys::ExpansionMode::Ed25519)
+                    .to_keypair();
 
-            let signature = kp
-                .sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode())
-                .to_bytes();
+                let deal_proposal = DealProposal {
+                    comm_p,
+                    padded_piece_size,
+                    client: AnyKey::Sr25519(kp.public.to_bytes()),
+                    miner,
+                    start_block,
+                    end_block,
+                };
 
-            println!("client public key: {:?}", HexString(&kp.public.to_bytes()));
-            println!("deal proposal:     {:?}", deal_proposal);
-            println!("signature:         {:?}", HexString(&signature));
+                let signature = kp
+                    .sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode())
+                    .to_bytes();
+
+                writeln!(
+                    out,
+                    "client public key: {:?}\n\
+                     deal proposal:     {:?}\n\
+                     signature:         {:?}",
+                    HexString(&kp.public.to_bytes()),
+                    deal_proposal,
+                    HexString(&signature),
+                )
+                .expect("output writing failed");
+            }
         }
-        Command::MinerVerifyPublish {
-            client: AnyKey::Sr25519(client_pk_arr),
-            miner_key: AnyKey::Sr25519(miner_sk_arr),
-            comm_p,
-            padded_piece_size,
-            start_block,
-            end_block,
-            signature: AnyHex(orig_signature),
-        } => {
-            let signature = schnorrkel::sign::Signature::from_bytes(&orig_signature[..])
-                .expect("Signature conversion failed");
+        Ok(())
+    }
+}
 
-            let client_pk = schnorrkel::keys::PublicKey::from_bytes(&client_pk_arr[..])
-                .expect("PublicKey conversion failed for client_key");
-
-            let miner_kp = schnorrkel::keys::MiniSecretKey::from_bytes(&miner_sk_arr[..])
-                .expect("SecretKey conversion failed for miner_key")
-                .expand(schnorrkel::keys::ExpansionMode::Ed25519)
-                .to_keypair();
-
-            let deal_proposal = DealProposal {
+impl MinerVerifyPublish {
+    fn run<W: Write>(self, mut out: W) -> Result<(), ProposalVerifyError> {
+        match self {
+            MinerVerifyPublish {
+                client: AnyKey::Sr25519(client_pk_arr),
+                miner_key: AnyKey::Sr25519(miner_sk_arr),
                 comm_p,
                 padded_piece_size,
-                client: AnyKey::Sr25519(client_pk_arr),
-                miner: AnyKey::Sr25519(miner_kp.public.to_bytes()),
                 start_block,
                 end_block,
-            };
+                signature: AnyHex(orig_signature),
+            } => {
+                let signature = schnorrkel::sign::Signature::from_bytes(&orig_signature[..])
+                    .expect("Signature conversion failed");
 
-            client_pk
-                .verify_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode(), &signature)
-                .expect("Invalid signature");
+                let client_pk = schnorrkel::keys::PublicKey::from_bytes(&client_pk_arr[..])
+                    .expect("PublicKey conversion failed for client_key");
 
-            // now we indicate intent to accept deal to the client
+                let miner_kp = schnorrkel::keys::MiniSecretKey::from_bytes(&miner_sk_arr[..])
+                    .expect("SecretKey conversion failed for miner_key")
+                    .expand(schnorrkel::keys::ExpansionMode::Ed25519)
+                    .to_keypair();
 
-            // and publish the deal
+                let deal_proposal = DealProposal {
+                    comm_p,
+                    padded_piece_size,
+                    client: AnyKey::Sr25519(client_pk_arr),
+                    miner: AnyKey::Sr25519(miner_kp.public.to_bytes()),
+                    start_block,
+                    end_block,
+                };
 
-            let deal = {
-                // just concatenate these together
-                let mut deal =
-                    Vec::<u8>::with_capacity(deal_proposal.encode().len() + orig_signature.len());
-                deal.extend(deal_proposal.encode());
-                deal.extend(&orig_signature[..]);
-                deal
-            };
+                client_pk
+                    .verify_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode(), &signature)
+                    .map_err(|_| ProposalVerifyError::InvalidSignature)?;
 
-            let deal_sig = miner_kp.sign_simple(SIMPLE_DEAL_CONTEXT, &deal).to_bytes();
+                // now we indicate intent to accept deal to the client
 
-            println!("deal proposal:   {:?}", deal_proposal);
-            println!("deal:            {:?}", HexString(deal.as_slice()));
-            println!("signature:       {:?}", HexString(&deal_sig[..]));
+                // and publish the deal
+
+                let deal = {
+                    // just concatenate these together
+                    let mut deal = Vec::<u8>::with_capacity(
+                        deal_proposal.encode().len() + orig_signature.len(),
+                    );
+                    deal.extend(deal_proposal.encode());
+                    deal.extend(&orig_signature[..]);
+                    deal
+                };
+
+                let deal_sig = miner_kp.sign_simple(SIMPLE_DEAL_CONTEXT, &deal).to_bytes();
+
+                writeln!(
+                    out,
+                    "deal proposal:   {:?}\n\
+                     deal:            {:?}\n\
+                     signature:       {:?}",
+                    deal_proposal,
+                    HexString(deal.as_slice()),
+                    HexString(&deal_sig[..])
+                )
+                .expect("output writing failed");
+
+                Ok(())
+            }
         }
+    }
+}
+
+fn run(opts: Opts) {
+    let stdout = std::io::stdout();
+    let stdout = stdout.lock();
+
+    let res: Result<(), Box<dyn std::error::Error>> = match opts.command {
+        Command::ClientProposeDeal(cpd) => cpd.run(stdout).map_err(Box::from),
+        Command::MinerVerifyPublish(mvp) => mvp.run(stdout).map_err(Box::from),
+    };
+
+    if let Err(e) = res {
+        println!("{}", e);
+        std::process::exit(1);
     }
 }
 
