@@ -104,10 +104,10 @@ impl fmt::Display for ProposableDeal {
             "client public key:   {:?}",
             HexString(self.deal_proposal.client.as_ref())
         )?;
-        writeln!(fmt, "deal:            {:?}", self.deal_proposal)?;
+        writeln!(fmt, "deal proposal:       {:?}", self.deal_proposal)?;
         writeln!(
             fmt,
-            "signature:       {:?}",
+            "signature:           {:?}",
             HexString(&self.signature.to_bytes()[..])
         )
     }
@@ -406,7 +406,9 @@ struct DealProposal {
 
 #[cfg(test)]
 mod tests {
-    use super::{AnyHex, AnyKey, ClientProposeDeal, MinerVerifyPublish};
+    use super::{
+        AnyHex, AnyKey, ClientProposeDeal, DealProposal, MinerVerifyPublish, ProposableDeal,
+    };
     use std::str::FromStr;
 
     #[test]
@@ -423,6 +425,32 @@ mod tests {
         };
 
         cmd.run().unwrap();
+    }
+
+    #[test]
+    fn proposable_deal_formatting() {
+        let client_pk = "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559";
+        let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
+        let sig = AnyHex::from_str("72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881").unwrap();
+        let expected = "\
+client public key:   143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
+deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Sr25519, miner: Sr25519, start_block: 10000, end_block: 20000 }
+signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881
+";
+
+        let resp = ProposableDeal {
+            deal_proposal: DealProposal {
+                comm_p: AnyHex::from_str("abcd").unwrap(),
+                padded_piece_size: 128,
+                client: AnyKey::from_str(client_pk).unwrap(),
+                miner: AnyKey::from_str(miner_pk).unwrap(),
+                start_block: 10_000,
+                end_block: 20_000,
+            },
+            signature: schnorrkel::sign::Signature::from_bytes(sig.as_ref()).unwrap(),
+        };
+
+        assert_eq!(expected, &format!("{}", resp));
     }
 
     #[test]
