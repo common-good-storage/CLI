@@ -1,6 +1,5 @@
 use codec::{Decode, Encode};
 use std::fmt;
-use std::io::Write;
 use std::str::FromStr;
 use structopt::StructOpt;
 
@@ -115,7 +114,7 @@ impl fmt::Display for ProposableDeal {
 }
 
 impl ClientProposeDeal {
-    fn run<W: Write>(self, mut out: W) -> Result<(), DealProposeError> {
+    fn run(self) -> Result<ProposableDeal, DealProposeError> {
         match self {
             ClientProposeDeal {
                 client_key: AnyKey::Sr25519(client_sk),
@@ -146,9 +145,7 @@ impl ClientProposeDeal {
                     signature,
                 };
 
-                writeln!(out, "{}", resp).expect("output writing failed");
-
-                Ok(())
+                Ok(resp)
             }
         }
     }
@@ -178,7 +175,7 @@ impl fmt::Display for PublishableDeal {
 }
 
 impl MinerVerifyPublish {
-    fn run<W: Write>(self, mut out: W) -> Result<(), ProposalVerifyError> {
+    fn run(self) -> Result<PublishableDeal, ProposalVerifyError> {
         match self {
             MinerVerifyPublish {
                 client: AnyKey::Sr25519(client_pk_arr),
@@ -235,26 +232,30 @@ impl MinerVerifyPublish {
                     deal_signature: deal_sig,
                 };
 
-                writeln!(out, "{}", resp).expect("output writing failed");
-
-                Ok(())
+                Ok(resp)
             }
         }
     }
 }
 
 fn run(opts: Opts) {
-    let stdout = std::io::stdout();
-    let stdout = stdout.lock();
-
-    let res: Result<(), Box<dyn std::error::Error>> = match opts.command {
-        Command::ClientProposeDeal(cpd) => cpd.run(stdout).map_err(Box::from),
-        Command::MinerVerifyPublish(mvp) => mvp.run(stdout).map_err(Box::from),
+    let res: Result<Box<dyn fmt::Display>, Box<dyn std::error::Error>> = match opts.command {
+        Command::ClientProposeDeal(cpd) => cpd
+            .run()
+            .map(|pd| Box::new(pd) as Box<dyn fmt::Display>)
+            .map_err(Box::from),
+        Command::MinerVerifyPublish(mvp) => mvp
+            .run()
+            .map(|pd| Box::new(pd) as Box<dyn fmt::Display>)
+            .map_err(Box::from),
     };
 
-    if let Err(e) = res {
-        println!("{}", e);
-        std::process::exit(1);
+    match res {
+        Ok(d) => println!("{}", d),
+        Err(e) => {
+            eprintln!("{}", e);
+            std::process::exit(1);
+        }
     }
 }
 
