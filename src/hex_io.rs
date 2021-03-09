@@ -82,33 +82,6 @@ impl fmt::Display for InvalidTaggedHex {
     }
 }
 
-/// Whoops, this is not actually used.
-#[derive(Debug)]
-pub(crate) enum AnySignature {
-    Sr25519([u8; 64]),
-}
-
-impl FromStr for AnySignature {
-    type Err = InvalidTaggedHex;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        use hex::FromHex;
-        let pos = s
-            .bytes()
-            .position(|ch| ch == b':')
-            .ok_or(InvalidTaggedHex::MissingSeparator)?;
-
-        let (prefix, hex) = (&s[..pos], &s[(pos + 1)..]);
-
-        let key = match prefix {
-            "sr25519" => AnySignature::Sr25519(<[u8; 64]>::from_hex(hex)?),
-            x => return Err(InvalidTaggedHex::InvalidPrefix(x.to_owned())),
-        };
-
-        Ok(key)
-    }
-}
-
 #[derive(Encode, Decode)]
 pub(crate) struct AnyHex(pub Vec<u8>);
 
