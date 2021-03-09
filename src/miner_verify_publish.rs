@@ -48,6 +48,8 @@ impl MinerVerifyPublish {
                     .expand(schnorrkel::keys::ExpansionMode::Ed25519)
                     .to_keypair();
 
+                // TODO: same verification for the deal which was done already by client
+
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,

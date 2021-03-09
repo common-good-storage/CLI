@@ -81,6 +81,8 @@ impl ClientProposeDeal {
                     .expand(schnorrkel::keys::ExpansionMode::Ed25519)
                     .to_keypair();
 
+                // TODO: start < end
+
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
