@@ -9,14 +9,19 @@ use structopt::StructOpt;
 
 #[derive(Debug, StructOpt)]
 pub(crate) struct MinerVerifyPublish {
-    // client's public key
+    /// Clients public key, "key_type:hex", e.g. "sr25519:{64 hex}".
     pub client: AnyKey,
-    // miner's private key
+    /// Miners private key, "key_type:hex", e.g. "sr25519:{64 hex}".
     pub miner_key: AnyKey,
+    /// The padded payload CID; any hex content will do for this example.
     pub comm_p: AnyHex,
+    /// Miners public key, "key_type:hex", e.g. "sr25519:{64 hex}".
     pub padded_piece_size: u64,
+    /// BlockNumber to start the deal.
     pub start_block: u64,
+    /// BlockNumber to end the deal.
     pub end_block: u64,
+    /// Clients signature for the deal proposal.
     pub signature: AnyHex,
 }
 

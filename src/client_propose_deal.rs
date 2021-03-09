@@ -11,16 +11,20 @@ use structopt::StructOpt;
 // ClientCollateral   abi.TokenAmount
 #[derive(Debug, StructOpt)]
 pub(crate) struct ClientProposeDeal {
-    // client's private key
+    /// Clients private key, "key_type:hex", e.g. "sr25519:{64 hex}".
     pub client_key: AnyKey,
-    // lets just pretend this is the commP cid
+    /// The padded payload CID; any hex content will do for this example.
     pub comm_p: AnyHex,
+    /// Size of the payload with fr32 padding. Any u64 will do.
     // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
     pub padded_piece_size: u64,
+    /// Miners public key, "key_type:hex", e.g. "sr25519:{64 hex}".
     // miner's public key i.e. 32 bytes
     pub miner: AnyKey,
+    /// BlockNumber to start the deal.
     // this type needs to match frame_system::BlockNumber defined in runtime
     pub start_block: u64,
+    /// BlockNumber to end the deal.
     // frame_support::pallet_prelude::BlockNumberFor
     pub end_block: u64,
 }

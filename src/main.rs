@@ -23,8 +23,10 @@ pub(crate) use hex_io::{AnyHex, AnyKey, HexString};
 
 #[derive(Debug, StructOpt)]
 enum Command {
-    /// This is signed by the client
+    /// Generate a signed deal proposal by the client to the specific miner.
     ClientProposeDeal(ClientProposeDeal),
+    /// Verify a previously client generated deal proposal by a miner, generating a on-chain
+    /// publishable deal description.
     MinerVerifyPublish(MinerVerifyPublish),
 }
 
