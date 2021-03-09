@@ -1,3 +1,4 @@
+///! Command for the deal initiation proposal made by the client, off-chain.
 use super::{AnyHex, AnyKey, DealProposal, HexString, SIMPLE_PROPOSAL_CONTEXT};
 use codec::Encode;
 use std::fmt;

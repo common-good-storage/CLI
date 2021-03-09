@@ -1,3 +1,5 @@
+///! Command for the miner response to a client initiated deal proposal. After this command has
+///! executed successfully, the deal would be ready to be published on-chain by the miner.
 use super::{
     AnyHex, AnyKey, DealProposal, HexString, SIMPLE_DEAL_CONTEXT, SIMPLE_PROPOSAL_CONTEXT,
 };
