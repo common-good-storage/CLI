@@ -1,9 +1,9 @@
 ///! Command for the deal initiation proposal made by the client, off-chain.
 use super::{AnyHex, AnyKey, DealProposal, HexString, SIMPLE_PROPOSAL_CONTEXT};
+use bls_signatures::Serialize;
 use codec::Encode;
 use std::fmt;
 use structopt::StructOpt;
-use bls_signatures::Serialize;
 
 // TODO: some fields are omitted in this phase
 // VerifiedDeal: bool,    indicate that the deal counts towards verified client total
