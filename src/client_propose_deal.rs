@@ -3,6 +3,7 @@ use super::{AnyHex, AnyKey, DealProposal, HexString, SIMPLE_PROPOSAL_CONTEXT};
 use codec::Encode;
 use std::fmt;
 use structopt::StructOpt;
+use bls_signatures::Serialize;
 
 // TODO: some fields are omitted in this phase
 // VerifiedDeal: bool,    indicate that the deal counts towards verified client total
@@ -46,7 +47,7 @@ impl std::error::Error for DealProposeError {}
 pub(crate) struct ProposableDeal {
     pub deal_proposal: DealProposal,
     // this should become vec<u8> or similar when we extend
-    pub signature: schnorrkel::sign::Signature,
+    pub signature: Vec<u8>,
 }
 
 impl fmt::Display for ProposableDeal {
@@ -60,7 +61,7 @@ impl fmt::Display for ProposableDeal {
         writeln!(
             fmt,
             "signature:           {:?}",
-            HexString(&self.signature.to_bytes()[..])
+            HexString(&self.signature[..])
         )
     }
 }
@@ -92,7 +93,41 @@ impl ClientProposeDeal {
                     end_block,
                 };
 
-                let signature = kp.sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode());
+                let signature = kp
+                    .sign_simple(SIMPLE_PROPOSAL_CONTEXT, &deal_proposal.encode())
+                    .to_bytes()
+                    .to_vec();
+
+                let resp = ProposableDeal {
+                    deal_proposal,
+                    signature,
+                };
+
+                Ok(resp)
+            }
+            ClientProposeDeal {
+                client_key: AnyKey::Bls(client_sk),
+                comm_p,
+                padded_piece_size,
+                miner,
+                start_block,
+                end_block,
+            } => {
+                let sk = bls_signatures::PrivateKey::from_bytes(&client_sk)
+                    .expect("SecretKey is valid, cannot fail");
+
+                // TODO: start < end
+
+                let deal_proposal = DealProposal {
+                    comm_p,
+                    padded_piece_size,
+                    client: AnyKey::Bls(sk.as_bytes()),
+                    miner,
+                    start_block,
+                    end_block,
+                };
+
+                let signature = sk.sign(&deal_proposal.encode()).as_bytes();
 
                 let resp = ProposableDeal {
                     deal_proposal,

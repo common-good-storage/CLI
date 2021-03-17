@@ -9,6 +9,7 @@ structopt = "0.3"
 hex = "0.4"
 schnorrkel = "0.9"
 rand = "0.7"
+bls-signatures = "0.8.0"
 
 [dependencies.codec]
 default-features = false
