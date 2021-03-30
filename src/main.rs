@@ -80,7 +80,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn example_client_propose_deal() {
+    fn example_client_propose_deal_sr25519() {
         let client_sk = "sr25519:554b6fc625fbea8f56eb56262d92ccb083fd6eaaf5ee9a966eaab4db2062f4d0";
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
         let cmd = ClientProposeDeal {
@@ -96,7 +96,23 @@ mod tests {
     }
 
     #[test]
-    fn proposable_deal_formatting() {
+    fn example_client_propose_deal_bls12() {
+        let client_sk = "bls12:3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e";
+        let miner_pk = "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351";
+        let cmd = ClientProposeDeal {
+            client_key: AnyKey::from_str(client_sk).unwrap(),
+            comm_p: AnyHex::from_str("abcd").unwrap(),
+            padded_piece_size: 128,
+            miner: AnyKey::from_str(miner_pk).unwrap(),
+            start_block: 10_000,
+            end_block: 20_000,
+        };
+
+        cmd.run().unwrap();
+    }
+
+    #[test]
+    fn proposable_deal_formatting_sr25519() {
         let client_pk = "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559";
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
         let sig = AnyHex::from_str("72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881").unwrap();
@@ -115,7 +131,33 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
                 start_block: 10_000,
                 end_block: 20_000,
             },
-            signature: schnorrkel::sign::Signature::from_bytes(sig.as_ref()).unwrap(),
+            signature: sig.0,
+        };
+
+        assert_eq!(expected, &format!("{}", resp));
+    }
+
+    #[test]
+    fn proposable_deal_formatting_bls12() {
+        let client_sk = "bls12:3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e";
+        let miner_pk = "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351";
+        let sig = AnyHex::from_str("b18742b2f829f846f40e4a60607c47a030a708b81e139fa4905c8d3482c03c941c0800d2f986bf6c23b1288aa31dfbbb16a71cc8c337b697d31891aae1da23667a31e23817ec2038eb904963c9ecbdac21307086f2105d0b838eaed5dc627a1c").unwrap();
+        let expected = "\
+client public key:   3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e
+deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Bls12, miner: Bls12, start_block: 10000, end_block: 20000 }
+signature:           b18742b2f829f846f40e4a60607c47a030a708b81e139fa4905c8d3482c03c941c0800d2f986bf6c23b1288aa31dfbbb16a71cc8c337b697d31891aae1da23667a31e23817ec2038eb904963c9ecbdac21307086f2105d0b838eaed5dc627a1c
+";
+
+        let resp = ProposableDeal {
+            deal_proposal: DealProposal {
+                comm_p: AnyHex::from_str("abcd").unwrap(),
+                padded_piece_size: 128,
+                client: AnyKey::from_str(client_sk).unwrap(),
+                miner: AnyKey::from_str(miner_pk).unwrap(),
+                start_block: 10_000,
+                end_block: 20_000,
+            },
+            signature: sig.0,
         };
 
         assert_eq!(expected, &format!("{}", resp));
@@ -193,7 +235,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
             padded_piece_size: proposable.deal_proposal.padded_piece_size,
             start_block: proposable.deal_proposal.start_block,
             end_block: proposable.deal_proposal.end_block,
-            signature: AnyHex(proposable.signature.to_bytes().to_vec()),
+            signature: AnyHex(proposable.signature),
         };
 
         cmd.run().unwrap();

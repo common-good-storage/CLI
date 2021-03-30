@@ -87,6 +87,7 @@ impl MinerVerifyPublish {
 
                 Ok(resp)
             }
+            _ => todo!(),
         }
     }
 }
