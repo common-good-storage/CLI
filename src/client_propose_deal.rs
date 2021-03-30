@@ -131,7 +131,18 @@ impl ClientProposeDeal {
                     end_block,
                 };
 
-                let signature = sk.sign(&deal_proposal.encode()).as_bytes();
+                let doc = deal_proposal.encode();
+
+                let signed = {
+                    // Per https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
+                    // prefix the document with the public key in order to get unique messages for
+                    // each key
+                    let mut buffer = sk.public_key().as_bytes();
+                    buffer.extend(doc);
+                    buffer
+                };
+
+                let signature = sk.sign(&signed).as_bytes();
 
                 let resp = ProposableDeal {
                     deal_proposal,
