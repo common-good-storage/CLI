@@ -32,12 +32,12 @@ pub(crate) struct ClientProposeDeal {
 
 #[derive(Debug)]
 pub(crate) enum DealProposeError {
-    // none at this time before we add key types
+    InvalidKeyCombination,
 }
 
 impl fmt::Display for DealProposeError {
-    fn fmt(&self, _fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unreachable!()
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.write_str("Invalid combination of key types")
     }
 }
 
@@ -106,22 +106,26 @@ impl ClientProposeDeal {
                 Ok(resp)
             }
             ClientProposeDeal {
-                client_key: AnyKey::Bls(client_sk),
+                client_key: AnyKey::BlsPrivate(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner,
+                miner: miner @ AnyKey::BlsPublic(_),
                 start_block,
                 end_block,
             } => {
+                use std::convert::TryInto;
+
                 let sk = bls_signatures::PrivateKey::from_bytes(&client_sk)
                     .expect("SecretKey is valid, cannot fail");
+
+                let pk = sk.public_key().as_bytes();
 
                 // TODO: start < end
 
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
-                    client: AnyKey::Bls(sk.as_bytes()),
+                    client: AnyKey::BlsPublic(pk.try_into().unwrap()),
                     miner,
                     start_block,
                     end_block,
@@ -136,6 +140,7 @@ impl ClientProposeDeal {
 
                 Ok(resp)
             }
+            _ => Err(DealProposeError::InvalidKeyCombination),
         }
     }
 }

@@ -16,7 +16,8 @@ use std::str::FromStr;
 #[derive(Encode, Decode)]
 pub(crate) enum AnyKey {
     Sr25519([u8; 32]),
-    Bls(Vec<u8>), // don't know exact length yet
+    BlsPrivate([u8; 32]),
+    BlsPublic([u8; 48]),
 }
 
 impl FromStr for AnyKey {
@@ -33,7 +34,15 @@ impl FromStr for AnyKey {
 
         let key = match prefix {
             "sr25519" => AnyKey::Sr25519(<[u8; 32]>::from_hex(hex)?),
-            "bls12" => AnyKey::Bls(Vec::<u8>::from_hex(hex)?),
+            "bls12" => match hex.len() {
+                64 => AnyKey::BlsPrivate(<[u8; 32]>::from_hex(hex)?),
+                96 => AnyKey::BlsPublic(<[u8; 48]>::from_hex(hex)?),
+                _ => {
+                    return Err(InvalidTaggedHex::InvalidHex(
+                        hex::FromHexError::InvalidStringLength,
+                    ))
+                }
+            },
             x => return Err(InvalidTaggedHex::InvalidPrefix(x.to_owned())),
         };
 
@@ -47,7 +56,8 @@ impl AsRef<[u8]> for AnyKey {
         // reading all of them on the command line at the moment.
         match self {
             AnyKey::Sr25519(x) => x,
-            AnyKey::Bls(x) => x,
+            AnyKey::BlsPublic(x) => x,
+            AnyKey::BlsPrivate(x) => x,
         }
     }
 }
@@ -57,7 +67,7 @@ impl fmt::Debug for AnyKey {
         match self {
             // don't output the key in case it was a private key, just in principle.
             AnyKey::Sr25519(_) => write!(fmt, "Sr25519"),
-            AnyKey::Bls(_) => write!(fmt, "Bls12"),
+            AnyKey::BlsPublic(_) | AnyKey::BlsPrivate(_) => write!(fmt, "Bls12"),
         }
     }
 }
