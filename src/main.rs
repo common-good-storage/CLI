@@ -113,6 +113,7 @@ mod tests {
 
     #[test]
     fn proposable_deal_formatting_sr25519() {
+        // this test case can have bogus input; it's just for testing the formatting
         let client_pk = "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559";
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
         let sig = AnyHex::from_str("72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881").unwrap();
@@ -127,42 +128,6 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
                 comm_p: AnyHex::from_str("abcd").unwrap(),
                 padded_piece_size: 128,
                 client: AnyKey::from_str(client_pk).unwrap(),
-                miner: AnyKey::from_str(miner_pk).unwrap(),
-                start_block: 10_000,
-                end_block: 20_000,
-            },
-            signature: sig.0,
-        };
-
-        assert_eq!(expected, &format!("{}", resp));
-    }
-
-    #[test]
-    fn proposable_deal_formatting_bls12() {
-        use bls_signatures::Serialize;
-        use std::convert::TryInto;
-        let client_sk = "bls12:3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e";
-        let miner_pk = "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351";
-        let sig = AnyHex::from_str("b66b31cd722ad9b686e41eae5ccc352cb57ce7455c45f49302568ebe3fb1331eb9c0dc38f60db2d990f4f53952a5fdeb0d71fe76e7048210ec7b60f62765738e01aaf1bb4fca405adb01f4a252842c6cc92a1154c2d0c6d570d5fee93067f970").unwrap();
-        let expected = "\
-client public key:   81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351
-deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Bls12, miner: Bls12, start_block: 10000, end_block: 20000 }
-signature:           b66b31cd722ad9b686e41eae5ccc352cb57ce7455c45f49302568ebe3fb1331eb9c0dc38f60db2d990f4f53952a5fdeb0d71fe76e7048210ec7b60f62765738e01aaf1bb4fca405adb01f4a252842c6cc92a1154c2d0c6d570d5fee93067f970
-";
-
-        let client_pk = match AnyKey::from_str(client_sk) {
-            Ok(AnyKey::BlsPrivate(bytes)) => bls_signatures::PrivateKey::from_bytes(&bytes)
-                .unwrap()
-                .public_key()
-                .as_bytes(),
-            x => unreachable!("{:?}", x),
-        };
-
-        let resp = ProposableDeal {
-            deal_proposal: DealProposal {
-                comm_p: AnyHex::from_str("abcd").unwrap(),
-                padded_piece_size: 128,
-                client: AnyKey::BlsPublic(client_pk.try_into().unwrap()),
                 miner: AnyKey::from_str(miner_pk).unwrap(),
                 start_block: 10_000,
                 end_block: 20_000,
