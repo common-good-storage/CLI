@@ -268,4 +268,24 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
 
         cmd.run().unwrap();
     }
+
+    #[test]
+    fn propose_deal_with_sr25519_client_to_bls_miner() {
+        let client_sk = "sr25519:554b6fc625fbea8f56eb56262d92ccb083fd6eaaf5ee9a966eaab4db2062f4d0";
+        let miner_pk = "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351";
+
+        ClientProposeDeal {
+            client_key: AnyKey::from_str(client_sk).unwrap(),
+            comm_p: AnyHex::from_str("abcd").unwrap(),
+            padded_piece_size: 128,
+            miner: AnyKey::from_str(miner_pk).unwrap(),
+            start_block: 10_000,
+            end_block: 20_000,
+        }
+        .run()
+        .unwrap_err();
+
+        // not fond of adding more of these because the type system makes sure we cannot mix these
+        // but... this case wasn't covered with a strict match.
+    }
 }

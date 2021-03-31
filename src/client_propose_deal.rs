@@ -73,7 +73,7 @@ impl ClientProposeDeal {
                 client_key: AnyKey::Sr25519(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner,
+                miner: miner @ AnyKey::Sr25519(_),
                 start_block,
                 end_block,
             } => {
