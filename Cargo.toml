@@ -10,6 +10,7 @@ hex = "0.4"
 schnorrkel = "0.9"
 rand = "0.7"
 bls-signatures = "0.8.0"
+hex-literal = "0.3"
 
 [dependencies.codec]
 default-features = false

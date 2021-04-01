@@ -224,18 +224,14 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
     #[test]
     fn example_miner_verify_publish_bls12() {
         use bls_signatures::Serialize;
+        use hex_literal::hex;
         use std::convert::TryInto;
 
         let client_sk = "bls12:3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e";
-
-        let miner_sk = "bls12:93383d7666256663e092709cf19ca215d4e26355af1152a80955d34ea796a431";
-        let miner_sk = AnyKey::from_str(miner_sk).unwrap();
-
-        // TODO: writing the operations back to back highlights that we should have a strongly typed
-        // layer above the cmdline operation level.
+        let client_sk = AnyKey::from_str(client_sk).unwrap();
 
         let client_pk = AnyKey::BlsPublic(
-            bls_signatures::PrivateKey::from_bytes(AnyKey::from_str(client_sk).unwrap().as_ref())
+            bls_signatures::PrivateKey::from_bytes(client_sk.as_bls_private().expect("impossible"))
                 .unwrap()
                 .public_key()
                 .as_bytes()
@@ -243,18 +239,22 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
                 .unwrap(),
         );
 
+        let miner_sk = "bls12:93383d7666256663e092709cf19ca215d4e26355af1152a80955d34ea796a431";
+        let miner_sk = AnyKey::from_str(miner_sk).unwrap();
+
+        let miner_pk =
+            bls_signatures::PrivateKey::from_bytes(miner_sk.as_bls_private().expect("impossible"))
+                .unwrap()
+                .public_key();
+
+        // TODO: writing the operations back to back highlights that we should have a strongly typed
+        // layer above the cmdline operation level.
+
         let cmd = ClientProposeDeal {
-            client_key: AnyKey::from_str(client_sk).unwrap(),
+            client_key: client_sk,
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
-            miner: AnyKey::BlsPublic(
-                bls_signatures::PrivateKey::from_bytes(miner_sk.as_ref())
-                    .unwrap()
-                    .public_key()
-                    .as_bytes()
-                    .try_into()
-                    .unwrap(),
-            ),
+            miner: AnyKey::BlsPublic(miner_pk.as_bytes().try_into().unwrap()),
             start_block: 10_000,
             end_block: 20_000,
         };
