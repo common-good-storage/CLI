@@ -19,15 +19,15 @@ $ cargo run --quiet client-propose-deal \
   10000 \
   20000
 
-client public key: 143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
-deal proposal:     DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Sr25519, miner: Sr25519, start_block: 10000, end_block: 20000 }
-signature:         46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f
+client public key:   sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
+deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559, miner: sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d, start_block: 10000, end_block: 20000 }
+signature:           c8a66dce56b233f903c1196174e673bf0fd01d305b1f806350c598d6580b865cc9967b960f8e4ae314194ad33ab012201f9a58b9f10be8613cf907bc0fd8df82
 ```
 
-and if we take that clients public key (143fa...) and the signed deal proposal (46b2...) to the next phase with the arguments:
+and if we take that clients public key (143fa...) and the signed deal proposal (c8a66...) to the next phase with the arguments:
 
 ```sh
-# Args: 
+# Args:
 #     client: AnyKey,          // client's public key
 #     miner_key: AnyKey,       // miner's private key
 #     comm_p: AnyHex,          // same as previous step
@@ -43,13 +43,12 @@ $ cargo run --quiet miner-verify-publish \
   128 \
   10000 \
   20000 \
-  46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f
+  c8a66dce56b233f903c1196174e673bf0fd01d305b1f806350c598d6580b865cc9967b960f8e4ae314194ad33ab012201f9a58b9f10be8613cf907bc0fd8df82
 
-deal proposal:   DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Sr25519, miner: Sr25519, start_block: 10000, end_block: 20000 }
-deal:            08abcd800000000000000000143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a55900d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d1027000000000000204e00000000000046b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f
-signature:       887762bd996054b319e97743cf50b4586f3de17a23195c588d1c6153a10aa273e273d6803ff83639e5b17b7b9e336aa14da61cd8d9cced93b945babadcb0d281
+deal proposal:   DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559, miner: sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d, start_block: 10000, end_block: 20000 }
+deal:            08abcd800000000000000000143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a55900d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d1027000000000000204e000000000000c8a66dce56b233f903c1196174e673bf0fd01d305b1f806350c598d6580b865cc9967b960f8e4ae314194ad33ab012201f9a58b9f10be8613cf907bc0fd8df82
+signature:       dea33232885f0716e39fe1c3e54c1eb7ce818aad17551cee7bc4f7d2c5c492235a0fccdc92c4be1bfd44b4c05e02e03a98c5b0150e0410b6970674e3e1a87f84
 ```
 
-This is just the basic `sign(sign(encoded(deal_proposal), client_key), miner_key)`, TODO: don't really know about the multisig sr25519 yet. 
-The `encoded deal:` in the output is the `deal_proposal.encode().chain(signature_by_client)` where deal_proposal is SCALE encoded and `signature` is the outer signature for it.
-
+Publishable deal is just a basic `sign(sign(encoded(deal_proposal), client_key), miner_key)` which does not use aggregate signatures.
+The `deal:` in the output is the `deal_proposal.encode().chain(signature_by_client)` where deal_proposal is SCALE encoded and `signature` is the outer signature for it.
