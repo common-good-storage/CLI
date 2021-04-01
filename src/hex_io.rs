@@ -4,7 +4,8 @@ use codec::{Decode, Encode};
 use std::fmt;
 use std::str::FromStr;
 
-/// Enumeration of supported keys, currently just sr25519.
+/// Lower level enumeration of supported keys for reading them from the command line for easy
+/// access. Later more secure ways to obtain the material can be implemented.
 ///
 /// The string input format is:
 ///

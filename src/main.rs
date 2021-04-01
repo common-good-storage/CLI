@@ -30,7 +30,9 @@ enum Command {
     MinerVerifyPublish(MinerVerifyPublish),
 }
 
+/// Simple signing context marker for sr25519 deal proposal
 static SIMPLE_PROPOSAL_CONTEXT: &[u8] = b"example starts: proposal";
+/// Simple signing context marker for sr25519 publishable deals
 static SIMPLE_DEAL_CONTEXT: &[u8] = b"example continues: deal";
 
 fn main() {
