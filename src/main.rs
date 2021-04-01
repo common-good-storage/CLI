@@ -18,6 +18,8 @@ use client_propose_deal::ClientProposeDeal;
 mod miner_verify_publish;
 use miner_verify_publish::MinerVerifyPublish;
 
+mod bls;
+
 mod hex_io;
 pub(crate) use hex_io::{AnyHex, AnyPrivateKey, AnyPublicKey, HexString};
 

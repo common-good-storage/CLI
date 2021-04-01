@@ -98,6 +98,7 @@ impl MinerVerifyPublish {
                 end_block,
                 signature: AnyHex(client_signature),
             } => {
+                use crate::bls;
                 use bls_signatures::Serialize;
 
                 let client_pk = bls_signatures::PublicKey::from_bytes(&client_pk_arr)
@@ -120,42 +121,21 @@ impl MinerVerifyPublish {
 
                 let deal_encoded = deal_proposal.encode();
 
-                let client_message = {
-                    // https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
-                    let mut buffer = client_pk.as_bytes();
-                    buffer.extend(&deal_encoded);
-                    buffer
-                };
-
-                if !client_pk.verify(client_signature, &client_message) {
+                if !bls::verify(&client_pk, client_signature, &deal_encoded) {
                     return Err(ProposalVerifyError::InvalidSignature);
                 }
 
-                let miner_message = {
-                    let mut buffer = miner_sk.public_key().as_bytes();
-                    buffer.extend(&deal_encoded);
-                    buffer
-                };
-
-                let miner_signature = miner_sk.sign(&miner_message);
-
-                assert!(miner_pk.verify(miner_signature, &miner_message));
+                let miner_signature = bls::sign(&miner_sk, &deal_encoded);
 
                 // aggregated signatures cannot contain signatures of the same document, which is
                 // why the signed document/message is prefixed with signers public key. See more in https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
                 let multisig = bls_signatures::aggregate(&[client_signature, miner_signature])
                     .expect("multisig construction failed");
 
-                assert_eq!(false, client_pk.verify(multisig, &client_message));
-                assert_eq!(false, miner_pk.verify(multisig, &miner_message));
-
-                assert!(bls_signatures::verify(
+                assert!(bls::verify_aggregate(
                     &multisig,
-                    &[
-                        bls_signatures::hash(&client_message),
-                        bls_signatures::hash(&miner_message)
-                    ],
-                    &[client_pk, miner_pk],
+                    &deal_encoded,
+                    &[client_pk, miner_pk]
                 ));
 
                 Ok(PublishableDeal {
