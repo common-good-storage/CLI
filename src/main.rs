@@ -271,35 +271,50 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
             signature: AnyHex(sig),
         };
 
-        cmd.run().unwrap();
+        let sig = cmd.run().unwrap().deal_signature;
+
+        // with bls the signature is deterministic so we can include it here
+        assert_eq!(sig, hex!("a02c42129aa7acd8a815c32c4d84bb00b9ce05ea69e309729cf9d2f914443902c4adb77f74cb607aa727d8e798bf81b30250ce73223060aab73980efe26e7f9943d2383ba25648ca5fd91b3a7d4310808067578a88a6c042b6f26bc5a3213908"));
     }
 
     #[test]
     fn cannot_publish_invalid_signature_based_deal() {
-        let client_pk = "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559";
-        let miner_sk = "sr25519:e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a";
-        // last char changed
-        let sig = "46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8d";
-
-        let cmd = MinerVerifyPublish {
-            client: AnyKey::from_str(client_pk).unwrap(),
-            miner_key: AnyKey::from_str(miner_sk).unwrap(),
-            comm_p: AnyHex::from_str("abcd").unwrap(),
-            padded_piece_size: 128,
-            start_block: 10_000,
-            end_block: 20_000,
-            signature: AnyHex::from_str(sig).unwrap(),
-        };
-
-        let err = cmd.run().unwrap_err();
-        assert!(
-            matches!(
-                err,
-                crate::miner_verify_publish::ProposalVerifyError::InvalidSignature
+        let input = &[
+            (
+                "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559",
+                "sr25519:e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a",
+                // last half-byte of signature changed
+                "46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8d"
             ),
-            "{:?}",
-            err
-        );
+            (
+                "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351",
+                "bls12:93383d7666256663e092709cf19ca215d4e26355af1152a80955d34ea796a431",
+                // last half-byte changed
+                "a02c42129aa7acd8a815c32c4d84bb00b9ce05ea69e309729cf9d2f914443902c4adb77f74cb607aa727d8e798bf81b30250ce73223060aab73980efe26e7f9943d2383ba25648ca5fd91b3a7d4310808067578a88a6c042b6f26bc5a3213907"
+            ),
+        ];
+
+        for &(client_pk, miner_sk, sig) in input {
+            let cmd = MinerVerifyPublish {
+                client: AnyKey::from_str(client_pk).unwrap(),
+                miner_key: AnyKey::from_str(miner_sk).unwrap(),
+                comm_p: AnyHex::from_str("abcd").unwrap(),
+                padded_piece_size: 128,
+                start_block: 10_000,
+                end_block: 20_000,
+                signature: AnyHex::from_str(sig).unwrap(),
+            };
+
+            let err = cmd.run().unwrap_err();
+            assert!(
+                matches!(
+                    err,
+                    crate::miner_verify_publish::ProposalVerifyError::InvalidSignature
+                ),
+                "{:?}",
+                err
+            );
+        }
     }
 
     #[test]
