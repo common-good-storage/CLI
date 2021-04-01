@@ -66,6 +66,30 @@ impl AnyKey {
             AnyKey::BlsPrivate(x) => x,
         }
     }
+
+    #[allow(unused)]
+    pub(crate) fn as_sr25519(&self) -> Option<&[u8; 32]> {
+        match self {
+            AnyKey::Sr25519(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn as_bls_private(&self) -> Option<&[u8; 32]> {
+        match self {
+            AnyKey::BlsPrivate(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn as_bls_public(&self) -> Option<&[u8; 48]> {
+        match self {
+            AnyKey::BlsPublic(x) => Some(x),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Debug for AnyKey {
