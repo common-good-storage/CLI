@@ -1,5 +1,5 @@
 ///! Command for the deal initiation proposal made by the client, off-chain.
-use super::{AnyHex, AnyKey, DealProposal, HexString, SIMPLE_PROPOSAL_CONTEXT};
+use super::{AnyHex, AnyKey, DealProposal, ProposableDeal, SIMPLE_PROPOSAL_CONTEXT};
 use bls_signatures::Serialize;
 use codec::Encode;
 use std::fmt;
@@ -42,29 +42,6 @@ impl fmt::Display for DealProposeError {
 }
 
 impl std::error::Error for DealProposeError {}
-
-#[derive(Debug)]
-pub(crate) struct ProposableDeal {
-    pub deal_proposal: DealProposal,
-    // this should become vec<u8> or similar when we extend
-    pub signature: Vec<u8>,
-}
-
-impl fmt::Display for ProposableDeal {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            fmt,
-            "client public key:   {:?}",
-            HexString(self.deal_proposal.client.as_ref())
-        )?;
-        writeln!(fmt, "deal proposal:       {:?}", self.deal_proposal)?;
-        writeln!(
-            fmt,
-            "signature:           {:?}",
-            HexString(&self.signature[..])
-        )
-    }
-}
 
 impl ClientProposeDeal {
     pub(crate) fn run(self) -> Result<ProposableDeal, DealProposeError> {

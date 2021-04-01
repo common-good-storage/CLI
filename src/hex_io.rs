@@ -50,10 +50,15 @@ impl FromStr for AnyKey {
     }
 }
 
-impl AsRef<[u8]> for AnyKey {
-    fn as_ref(&self) -> &[u8] {
-        // this method is ... not great if the input was a minisecretkey, but then again, we are
-        // reading all of them on the command line at the moment.
+impl AnyKey {
+    /// Returns the key material as a slice.
+    ///
+    /// # Safety
+    ///
+    /// There are no preconditions to uphold however this should not be used by mistake in any of
+    /// the (de)serialization code as it will be very easy to mix up different key types, leading
+    /// to subtle bugs.
+    pub(crate) unsafe fn as_slice(&self) -> &[u8] {
         match self {
             AnyKey::Sr25519(x) => x,
             AnyKey::BlsPublic(x) => x,

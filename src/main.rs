@@ -74,6 +74,27 @@ struct DealProposal {
 }
 
 #[derive(Debug)]
+pub(crate) struct ProposableDeal {
+    pub deal_proposal: DealProposal,
+    // this should become vec<u8> or similar when we extend
+    pub signature: Vec<u8>,
+}
+
+impl fmt::Display for ProposableDeal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // safety: we are not deserializing here
+        let client_pk = unsafe { self.deal_proposal.client.as_slice() };
+        writeln!(fmt, "client public key:   {:?}", HexString(client_pk))?;
+        writeln!(fmt, "deal proposal:       {:?}", self.deal_proposal)?;
+        writeln!(
+            fmt,
+            "signature:           {:?}",
+            HexString(&self.signature[..])
+        )
+    }
+}
+
+#[derive(Debug)]
 pub(crate) struct PublishableDeal {
     deal_proposal: DealProposal,
     serialized_deal: Vec<u8>,
@@ -98,8 +119,9 @@ impl fmt::Display for PublishableDeal {
 
 #[cfg(test)]
 mod tests {
-    use super::{AnyHex, AnyKey, ClientProposeDeal, DealProposal, MinerVerifyPublish};
-    use crate::client_propose_deal::ProposableDeal;
+    use super::{
+        AnyHex, AnyKey, ClientProposeDeal, DealProposal, MinerVerifyPublish, ProposableDeal,
+    };
     use std::str::FromStr;
 
     #[test]
