@@ -1,7 +1,7 @@
 ///! Command for the miner response to a client initiated deal proposal. After this command has
 ///! executed successfully, the deal would be ready to be published on-chain by the miner.
 use super::{
-    AnyHex, AnyKey, DealProposal, HexString, SIMPLE_DEAL_CONTEXT, SIMPLE_PROPOSAL_CONTEXT,
+    AnyHex, AnyKey, DealProposal, PublishableDeal, SIMPLE_DEAL_CONTEXT, SIMPLE_PROPOSAL_CONTEXT,
 };
 use codec::Encode;
 use std::fmt;
@@ -187,26 +187,3 @@ impl fmt::Display for ProposalVerifyError {
 }
 
 impl std::error::Error for ProposalVerifyError {}
-
-#[derive(Debug)]
-pub(crate) struct PublishableDeal {
-    deal_proposal: DealProposal,
-    serialized_deal: Vec<u8>,
-    deal_signature: Vec<u8>,
-}
-
-impl fmt::Display for PublishableDeal {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(fmt, "deal proposal:   {:?}", self.deal_proposal)?;
-        writeln!(
-            fmt,
-            "deal:            {:?}",
-            HexString(self.serialized_deal.as_slice())
-        )?;
-        writeln!(
-            fmt,
-            "signature:       {:?}",
-            HexString(&self.deal_signature[..])
-        )
-    }
-}

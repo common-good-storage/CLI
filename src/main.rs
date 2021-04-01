@@ -73,6 +73,29 @@ struct DealProposal {
     end_block: u64,
 }
 
+#[derive(Debug)]
+pub(crate) struct PublishableDeal {
+    deal_proposal: DealProposal,
+    serialized_deal: Vec<u8>,
+    deal_signature: Vec<u8>,
+}
+
+impl fmt::Display for PublishableDeal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(fmt, "deal proposal:   {:?}", self.deal_proposal)?;
+        writeln!(
+            fmt,
+            "deal:            {:?}",
+            HexString(self.serialized_deal.as_slice())
+        )?;
+        writeln!(
+            fmt,
+            "signature:       {:?}",
+            HexString(&self.deal_signature[..])
+        )
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{AnyHex, AnyKey, ClientProposeDeal, DealProposal, MinerVerifyPublish};
