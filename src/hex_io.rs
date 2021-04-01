@@ -32,6 +32,15 @@ impl fmt::Debug for AnyPublicKey {
     }
 }
 
+impl AsRef<[u8]> for AnyPublicKey {
+    fn as_ref(&self) -> &[u8] {
+        match self {
+            AnyPublicKey::Sr25519(x) => x,
+            AnyPublicKey::Bls(x) => x,
+        }
+    }
+}
+
 pub(crate) enum AnyPrivateKey {
     Sr25519([u8; 32]),
     Bls([u8; 32]),
@@ -179,6 +188,12 @@ impl FromStr for AnyHex {
 impl fmt::Debug for AnyHex {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(fmt, "AnyHex({:?})", HexString(&self.0))
+    }
+}
+
+impl From<Vec<u8>> for AnyHex {
+    fn from(x: Vec<u8>) -> Self {
+        AnyHex(x)
     }
 }
 

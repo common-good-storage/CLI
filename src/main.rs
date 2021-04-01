@@ -60,19 +60,33 @@ fn run(opts: Opts) {
     }
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Encode, Decode)]
 struct DealProposal {
-    comm_p: AnyHex,
+    // Cid
+    comm_p: Vec<u8>,
     // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
     padded_piece_size: u64,
     // Public key - AccountId - https://substrate.dev/docs/en/knowledgebase/integrate/subkey#generating-keys
-    client: AnyPublicKey,
+    client: Vec<u8>,
     // Public key i.e. 32 bytes
-    miner: AnyPublicKey,
+    miner: Vec<u8>,
     // this type needs to match frame_system::BlockNumber defined in runtime
     start_block: u64,
     // frame_support::pallet_prelude::BlockNumberFor
     end_block: u64,
+}
+
+impl fmt::Debug for DealProposal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("DealProposal")
+            .field("comm_p", &HexString(&self.comm_p))
+            .field("padded_piece_size", &self.padded_piece_size)
+            .field("client", &HexString(&self.client))
+            .field("miner", &HexString(&self.miner))
+            .field("start_block", &self.start_block)
+            .field("end_block", &self.end_block)
+            .finish()
+    }
 }
 
 pub(crate) struct ProposableDeal {
@@ -84,7 +98,11 @@ pub(crate) struct ProposableDeal {
 impl fmt::Display for ProposableDeal {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // safety: we are not deserializing here
-        writeln!(fmt, "client public key:   {:?}", &self.deal_proposal.client)?;
+        writeln!(
+            fmt,
+            "client public key:   {:?}",
+            HexString(&self.deal_proposal.client)
+        )?;
         writeln!(fmt, "deal proposal:       {:?}", self.deal_proposal)?;
         writeln!(
             fmt,
@@ -96,7 +114,7 @@ impl fmt::Display for ProposableDeal {
 
 impl fmt::Debug for ProposableDeal {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("PublishableDeal")
+        fmt.debug_struct("ProposableDeal")
             .field("deal_proposal", &self.deal_proposal)
             .field("signature", &HexString(&self.signature))
             .finish()
@@ -182,17 +200,17 @@ mod tests {
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
         let sig = AnyHex::from_str("72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881").unwrap();
         let expected = "\
-client public key:   sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
-deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559, miner: sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d, start_block: 10000, end_block: 20000 }
+client public key:   143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
+deal proposal:       DealProposal { comm_p: abcd, padded_piece_size: 128, client: 143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559, miner: d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d, start_block: 10000, end_block: 20000 }
 signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881
 ";
 
         let resp = ProposableDeal {
             deal_proposal: DealProposal {
-                comm_p: AnyHex::from_str("abcd").unwrap(),
+                comm_p: AnyHex::from_str("abcd").unwrap().as_ref().to_vec(),
                 padded_piece_size: 128,
-                client: AnyPublicKey::from_str(client_pk).unwrap(),
-                miner: AnyPublicKey::from_str(miner_pk).unwrap(),
+                client: AnyPublicKey::from_str(client_pk).unwrap().as_ref().to_vec(),
+                miner: AnyPublicKey::from_str(miner_pk).unwrap().as_ref().to_vec(),
                 start_block: 10_000,
                 end_block: 20_000,
             },
@@ -206,7 +224,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
     fn example_miner_verify_publish() {
         let client_pk = "sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559";
         let miner_sk = "sr25519:e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a";
-        let sig = "46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f";
+        let sig = "b872f42447b4faac51102d80253a1fb04b36f4ec32214446c5d85c32d964bf2d57fe9187d8b05dfaf3282fdc37cca7fb66bb0e4296a1200cc3abff8e04ef2d84";
 
         let cmd = MinerVerifyPublish {
             client: AnyPublicKey::from_str(client_pk).unwrap(),
@@ -274,7 +292,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         let sig = cmd.run().unwrap().deal_signature;
 
         // with bls the signature is deterministic so we can include it here
-        assert_eq!(sig, hex!("b68b782a408c662e7056b6562347cdb2700ca2b25590fcd44c8657fc04ed83513a12818b1586606457de6a2cc61200070838d6c43ee766aca48970eb493d6ffdc46452b034d6c41a6cac4dabe4b9303c6ad08dd1b5c84549270bd931b1437b9e"));
+        assert_eq!(sig, hex!("b8ea10ccc4fba7673aedf5679db83ec3b3298c227a5491977b0752f3db2437e1d875559909940c5dda9676bb2680ae870c51d1bf14a7591ef47a9dc7589f96ec4abc08a083b2b943a5c9319d3e15737d7336f41799e444661dae7089b023b85d"));
     }
 
     #[test]
@@ -319,6 +337,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
 
     #[test]
     fn propose_and_verify_publish() {
+        use std::convert::TryInto;
         let client_sk = "sr25519:554b6fc625fbea8f56eb56262d92ccb083fd6eaaf5ee9a966eaab4db2062f4d0";
 
         let miner_sk = "sr25519:e5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a";
@@ -336,9 +355,9 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         let proposable = cmd.run().unwrap();
 
         let cmd = MinerVerifyPublish {
-            client: proposable.deal_proposal.client,
+            client: AnyPublicKey::Sr25519(proposable.deal_proposal.client.try_into().unwrap()),
             miner_key: AnyPrivateKey::from_str(miner_sk).unwrap(),
-            comm_p: proposable.deal_proposal.comm_p,
+            comm_p: AnyHex::from(proposable.deal_proposal.comm_p),
             padded_piece_size: proposable.deal_proposal.padded_piece_size,
             start_block: proposable.deal_proposal.start_block,
             end_block: proposable.deal_proposal.end_block,

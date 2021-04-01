@@ -52,7 +52,7 @@ impl ClientProposeDeal {
                 client_key: AnyPrivateKey::Sr25519(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner: miner @ AnyPublicKey::Sr25519(_),
+                miner: AnyPublicKey::Sr25519(miner_pk),
                 start_block,
                 end_block,
             } => {
@@ -64,10 +64,10 @@ impl ClientProposeDeal {
                 // TODO: start < end
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyPublicKey::Sr25519(kp.public.to_bytes()),
-                    miner,
+                    client: kp.public.to_bytes().to_vec(),
+                    miner: miner_pk.to_vec(),
                     start_block,
                     end_block,
                 };
@@ -88,12 +88,10 @@ impl ClientProposeDeal {
                 client_key: AnyPrivateKey::Bls(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner: miner @ AnyPublicKey::Bls(_),
+                miner: AnyPublicKey::Bls(miner_pk),
                 start_block,
                 end_block,
             } => {
-                use std::convert::TryInto;
-
                 let sk = bls_signatures::PrivateKey::from_bytes(&client_sk)
                     .expect("SecretKey is valid, cannot fail");
 
@@ -102,10 +100,10 @@ impl ClientProposeDeal {
                 // TODO: start < end
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyPublicKey::Bls(pk.try_into().unwrap()),
-                    miner,
+                    client: pk,
+                    miner: miner_pk.to_vec(),
                     start_block,
                     end_block,
                 };

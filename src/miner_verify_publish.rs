@@ -52,10 +52,10 @@ impl MinerVerifyPublish {
                 // TODO: same verification for the deal which was done already by client
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyPublicKey::Sr25519(client_pk_arr),
-                    miner: AnyPublicKey::Sr25519(miner_kp.public.to_bytes()),
+                    client: client_pk_arr.to_vec(),
+                    miner: miner_kp.public.to_bytes().to_vec(),
                     start_block,
                     end_block,
                 };
@@ -99,7 +99,6 @@ impl MinerVerifyPublish {
                 signature: AnyHex(client_signature),
             } => {
                 use bls_signatures::Serialize;
-                use std::convert::TryInto;
 
                 let client_pk = bls_signatures::PublicKey::from_bytes(&client_pk_arr)
                     .expect("key conversion shouldn't fail");
@@ -111,10 +110,10 @@ impl MinerVerifyPublish {
                 let miner_pk = miner_sk.public_key();
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyPublicKey::Bls(client_pk_arr),
-                    miner: AnyPublicKey::Bls(miner_pk.as_bytes().try_into().unwrap()),
+                    client: client_pk_arr.to_vec(),
+                    miner: miner_pk.as_bytes().to_vec(),
                     start_block,
                     end_block,
                 };
