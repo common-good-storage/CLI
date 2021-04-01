@@ -75,7 +75,6 @@ struct DealProposal {
     end_block: u64,
 }
 
-#[derive(Debug)]
 pub(crate) struct ProposableDeal {
     pub deal_proposal: DealProposal,
     // this should become vec<u8> or similar when we extend
@@ -96,7 +95,15 @@ impl fmt::Display for ProposableDeal {
     }
 }
 
-#[derive(Debug)]
+impl fmt::Debug for ProposableDeal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("PublishableDeal")
+            .field("deal_proposal", &self.deal_proposal)
+            .field("signature", &HexString(&self.signature))
+            .finish()
+    }
+}
+
 pub(crate) struct PublishableDeal {
     deal_proposal: DealProposal,
     serialized_deal: Vec<u8>,
@@ -116,6 +123,16 @@ impl fmt::Display for PublishableDeal {
             "signature:       {:?}",
             HexString(&self.deal_signature[..])
         )
+    }
+}
+
+impl fmt::Debug for PublishableDeal {
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.debug_struct("PublishableDeal")
+            .field("deal_proposal", &self.deal_proposal)
+            .field("serialized_deal", &HexString(&self.serialized_deal))
+            .field("deal_signature", &HexString(&self.deal_signature))
+            .finish()
     }
 }
 
