@@ -19,7 +19,7 @@ mod miner_verify_publish;
 use miner_verify_publish::MinerVerifyPublish;
 
 mod hex_io;
-pub(crate) use hex_io::{AnyHex, AnyKey, HexString};
+pub(crate) use hex_io::{AnyHex, AnyPrivateKey, AnyPublicKey, HexString};
 
 #[derive(Debug, StructOpt)]
 enum Command {
@@ -66,9 +66,9 @@ struct DealProposal {
     // size of the payload and any padding to construct the binary merkle trie https://spec.filecoin.io/systems/filecoin_files/piece/pieces.png
     padded_piece_size: u64,
     // Public key - AccountId - https://substrate.dev/docs/en/knowledgebase/integrate/subkey#generating-keys
-    client: AnyKey,
+    client: AnyPublicKey,
     // Public key i.e. 32 bytes
-    miner: AnyKey,
+    miner: AnyPublicKey,
     // this type needs to match frame_system::BlockNumber defined in runtime
     start_block: u64,
     // frame_support::pallet_prelude::BlockNumberFor
@@ -84,8 +84,7 @@ pub(crate) struct ProposableDeal {
 impl fmt::Display for ProposableDeal {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
         // safety: we are not deserializing here
-        let client_pk = unsafe { self.deal_proposal.client.as_slice() };
-        writeln!(fmt, "client public key:   {:?}", HexString(client_pk))?;
+        writeln!(fmt, "client public key:   {:?}", &self.deal_proposal.client)?;
         writeln!(fmt, "deal proposal:       {:?}", self.deal_proposal)?;
         writeln!(
             fmt,

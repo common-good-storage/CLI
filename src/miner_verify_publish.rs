@@ -1,7 +1,8 @@
 ///! Command for the miner response to a client initiated deal proposal. After this command has
 ///! executed successfully, the deal would be ready to be published on-chain by the miner.
 use super::{
-    AnyHex, AnyKey, DealProposal, PublishableDeal, SIMPLE_DEAL_CONTEXT, SIMPLE_PROPOSAL_CONTEXT,
+    AnyHex, AnyPrivateKey, AnyPublicKey, DealProposal, PublishableDeal, SIMPLE_DEAL_CONTEXT,
+    SIMPLE_PROPOSAL_CONTEXT,
 };
 use codec::Encode;
 use std::fmt;
@@ -10,9 +11,9 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub(crate) struct MinerVerifyPublish {
     /// Clients public key, "key_type:hex", e.g. "sr25519:{64 hex}".
-    pub client: AnyKey,
+    pub client: AnyPublicKey,
     /// Miners private key, "key_type:hex", e.g. "sr25519:{64 hex}".
-    pub miner_key: AnyKey,
+    pub miner_key: AnyPrivateKey,
     /// The padded payload CID; any hex content will do for this example.
     pub comm_p: AnyHex,
     /// Miners public key, "key_type:hex", e.g. "sr25519:{64 hex}".
@@ -29,8 +30,8 @@ impl MinerVerifyPublish {
     pub(crate) fn run(self) -> Result<PublishableDeal, ProposalVerifyError> {
         match self {
             MinerVerifyPublish {
-                client: AnyKey::Sr25519(client_pk_arr),
-                miner_key: AnyKey::Sr25519(miner_sk_arr),
+                client: AnyPublicKey::Sr25519(client_pk_arr),
+                miner_key: AnyPrivateKey::Sr25519(miner_sk_arr),
                 comm_p,
                 padded_piece_size,
                 start_block,
@@ -53,8 +54,8 @@ impl MinerVerifyPublish {
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
-                    client: AnyKey::Sr25519(client_pk_arr),
-                    miner: AnyKey::Sr25519(miner_kp.public.to_bytes()),
+                    client: AnyPublicKey::Sr25519(client_pk_arr),
+                    miner: AnyPublicKey::Sr25519(miner_kp.public.to_bytes()),
                     start_block,
                     end_block,
                 };
@@ -89,8 +90,8 @@ impl MinerVerifyPublish {
                 Ok(resp)
             }
             MinerVerifyPublish {
-                client: AnyKey::BlsPublic(client_pk_arr),
-                miner_key: AnyKey::BlsPrivate(miner_sk_arr),
+                client: AnyPublicKey::Bls(client_pk_arr),
+                miner_key: AnyPrivateKey::Bls(miner_sk_arr),
                 comm_p,
                 padded_piece_size,
                 start_block,
@@ -112,8 +113,8 @@ impl MinerVerifyPublish {
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
-                    client: AnyKey::BlsPublic(client_pk_arr),
-                    miner: AnyKey::BlsPublic(miner_pk.as_bytes().try_into().unwrap()),
+                    client: AnyPublicKey::Bls(client_pk_arr),
+                    miner: AnyPublicKey::Bls(miner_pk.as_bytes().try_into().unwrap()),
                     start_block,
                     end_block,
                 };

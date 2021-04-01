@@ -4,6 +4,60 @@ use codec::{Decode, Encode};
 use std::fmt;
 use std::str::FromStr;
 
+#[derive(Encode, Decode)]
+pub(crate) enum AnyPublicKey {
+    Sr25519([u8; 32]),
+    Bls([u8; 48]),
+}
+
+impl FromStr for AnyPublicKey {
+    type Err = InvalidTaggedHex;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match AnyKey::from_str(s)? {
+            AnyKey::Sr25519(x) => Self::Sr25519(x),
+            AnyKey::BlsPublic(x) => Self::Bls(x),
+            _ => return Err(InvalidTaggedHex::invalid_length()),
+        })
+    }
+}
+
+impl fmt::Debug for AnyPublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // as we are expected as public keys, go ahead and dump the input representation
+        match self {
+            AnyPublicKey::Sr25519(x) => write!(f, "sr25519:{:?}", HexString(x)),
+            AnyPublicKey::Bls(x) => write!(f, "bls12:{:?}", HexString(x)),
+        }
+    }
+}
+
+pub(crate) enum AnyPrivateKey {
+    Sr25519([u8; 32]),
+    Bls([u8; 32]),
+}
+
+impl FromStr for AnyPrivateKey {
+    type Err = InvalidTaggedHex;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match AnyKey::from_str(s)? {
+            AnyKey::Sr25519(x) => Self::Sr25519(x),
+            AnyKey::BlsPrivate(x) => Self::Bls(x),
+            _ => return Err(InvalidTaggedHex::invalid_length()),
+        })
+    }
+}
+
+impl fmt::Debug for AnyPrivateKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            AnyPrivateKey::Sr25519(_) => "Sr25519",
+            AnyPrivateKey::Bls(_) => "Bls",
+        })
+    }
+}
+
 /// Lower level enumeration of supported keys for reading them from the command line for easy
 /// access. Later more secure ways to obtain the material can be implemented.
 ///
@@ -14,8 +68,7 @@ use std::str::FromStr;
 /// ```
 ///
 /// Where tag is any of the variants in lowercase, hex is the variant specific length hex string.
-#[derive(Encode, Decode)]
-pub(crate) enum AnyKey {
+enum AnyKey {
     Sr25519([u8; 32]),
     BlsPrivate([u8; 32]),
     BlsPublic([u8; 48]),
@@ -38,11 +91,7 @@ impl FromStr for AnyKey {
             "bls12" => match hex.len() {
                 64 => AnyKey::BlsPrivate(<[u8; 32]>::from_hex(hex)?),
                 96 => AnyKey::BlsPublic(<[u8; 48]>::from_hex(hex)?),
-                _ => {
-                    return Err(InvalidTaggedHex::InvalidHex(
-                        hex::FromHexError::InvalidStringLength,
-                    ))
-                }
+                _ => return Err(InvalidTaggedHex::invalid_length()),
             },
             x => return Err(InvalidTaggedHex::InvalidPrefix(x.to_owned())),
         };
@@ -52,21 +101,6 @@ impl FromStr for AnyKey {
 }
 
 impl AnyKey {
-    /// Returns the key material as a slice.
-    ///
-    /// # Safety
-    ///
-    /// There are no preconditions to uphold however this should not be used by mistake in any of
-    /// the (de)serialization code as it will be very easy to mix up different key types, leading
-    /// to subtle bugs.
-    pub(crate) unsafe fn as_slice(&self) -> &[u8] {
-        match self {
-            AnyKey::Sr25519(x) => x,
-            AnyKey::BlsPublic(x) => x,
-            AnyKey::BlsPrivate(x) => x,
-        }
-    }
-
     #[allow(unused)]
     pub(crate) fn as_sr25519(&self) -> Option<&[u8; 32]> {
         match self {
@@ -107,6 +141,12 @@ pub(crate) enum InvalidTaggedHex {
     MissingSeparator,
     InvalidPrefix(String),
     InvalidHex(hex::FromHexError),
+}
+
+impl InvalidTaggedHex {
+    fn invalid_length() -> Self {
+        InvalidTaggedHex::InvalidHex(hex::FromHexError::InvalidStringLength)
+    }
 }
 
 impl From<hex::FromHexError> for InvalidTaggedHex {

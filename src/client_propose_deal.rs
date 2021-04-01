@@ -1,5 +1,7 @@
 ///! Command for the deal initiation proposal made by the client, off-chain.
-use super::{AnyHex, AnyKey, DealProposal, ProposableDeal, SIMPLE_PROPOSAL_CONTEXT};
+use super::{
+    AnyHex, AnyPrivateKey, AnyPublicKey, DealProposal, ProposableDeal, SIMPLE_PROPOSAL_CONTEXT,
+};
 use bls_signatures::Serialize;
 use codec::Encode;
 use std::fmt;
@@ -13,7 +15,7 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub(crate) struct ClientProposeDeal {
     /// Clients private key, "key_type:hex", e.g. "sr25519:{64 hex}".
-    pub client_key: AnyKey,
+    pub client_key: AnyPrivateKey,
     /// The padded payload CID; any hex content will do for this example.
     pub comm_p: AnyHex,
     /// Size of the payload with fr32 padding. Any u64 will do.
@@ -21,7 +23,7 @@ pub(crate) struct ClientProposeDeal {
     pub padded_piece_size: u64,
     /// Miners public key, "key_type:hex", e.g. "sr25519:{64 hex}".
     // miner's public key i.e. 32 bytes
-    pub miner: AnyKey,
+    pub miner: AnyPublicKey,
     /// BlockNumber to start the deal.
     // this type needs to match frame_system::BlockNumber defined in runtime
     pub start_block: u64,
@@ -47,10 +49,10 @@ impl ClientProposeDeal {
     pub(crate) fn run(self) -> Result<ProposableDeal, DealProposeError> {
         match self {
             ClientProposeDeal {
-                client_key: AnyKey::Sr25519(client_sk),
+                client_key: AnyPrivateKey::Sr25519(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner: miner @ AnyKey::Sr25519(_),
+                miner: miner @ AnyPublicKey::Sr25519(_),
                 start_block,
                 end_block,
             } => {
@@ -64,7 +66,7 @@ impl ClientProposeDeal {
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
-                    client: AnyKey::Sr25519(kp.public.to_bytes()),
+                    client: AnyPublicKey::Sr25519(kp.public.to_bytes()),
                     miner,
                     start_block,
                     end_block,
@@ -83,10 +85,10 @@ impl ClientProposeDeal {
                 Ok(resp)
             }
             ClientProposeDeal {
-                client_key: AnyKey::BlsPrivate(client_sk),
+                client_key: AnyPrivateKey::Bls(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner: miner @ AnyKey::BlsPublic(_),
+                miner: miner @ AnyPublicKey::Bls(_),
                 start_block,
                 end_block,
             } => {
@@ -102,7 +104,7 @@ impl ClientProposeDeal {
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
-                    client: AnyKey::BlsPublic(pk.try_into().unwrap()),
+                    client: AnyPublicKey::Bls(pk.try_into().unwrap()),
                     miner,
                     start_block,
                     end_block,
