@@ -138,7 +138,8 @@ impl fmt::Debug for PublishableDeal {
 #[cfg(test)]
 mod tests {
     use super::{
-        AnyHex, AnyKey, ClientProposeDeal, DealProposal, MinerVerifyPublish, ProposableDeal,
+        AnyHex, AnyPrivateKey, AnyPublicKey, ClientProposeDeal, DealProposal, MinerVerifyPublish,
+        ProposableDeal,
     };
     use std::str::FromStr;
 
@@ -147,10 +148,10 @@ mod tests {
         let client_sk = "sr25519:554b6fc625fbea8f56eb56262d92ccb083fd6eaaf5ee9a966eaab4db2062f4d0";
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
         let cmd = ClientProposeDeal {
-            client_key: AnyKey::from_str(client_sk).unwrap(),
+            client_key: AnyPrivateKey::from_str(client_sk).unwrap(),
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
-            miner: AnyKey::from_str(miner_pk).unwrap(),
+            miner: AnyPublicKey::from_str(miner_pk).unwrap(),
             start_block: 10_000,
             end_block: 20_000,
         };
@@ -163,10 +164,10 @@ mod tests {
         let client_sk = "bls12:3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e";
         let miner_pk = "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351";
         let cmd = ClientProposeDeal {
-            client_key: AnyKey::from_str(client_sk).unwrap(),
+            client_key: AnyPrivateKey::from_str(client_sk).unwrap(),
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
-            miner: AnyKey::from_str(miner_pk).unwrap(),
+            miner: AnyPublicKey::from_str(miner_pk).unwrap(),
             start_block: 10_000,
             end_block: 20_000,
         };
@@ -181,8 +182,8 @@ mod tests {
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
         let sig = AnyHex::from_str("72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881").unwrap();
         let expected = "\
-client public key:   143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
-deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: Sr25519, miner: Sr25519, start_block: 10000, end_block: 20000 }
+client public key:   sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559
+deal proposal:       DealProposal { comm_p: AnyHex(abcd), padded_piece_size: 128, client: sr25519:143fa4ecea108937a2324d36ee4cbce3c6f3a08b0499b276cd7adb7a7631a559, miner: sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d, start_block: 10000, end_block: 20000 }
 signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f06a307c440874fb8b844e481152192d71f594f4db5812549af90bfa107379f93a8881
 ";
 
@@ -190,8 +191,8 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
             deal_proposal: DealProposal {
                 comm_p: AnyHex::from_str("abcd").unwrap(),
                 padded_piece_size: 128,
-                client: AnyKey::from_str(client_pk).unwrap(),
-                miner: AnyKey::from_str(miner_pk).unwrap(),
+                client: AnyPublicKey::from_str(client_pk).unwrap(),
+                miner: AnyPublicKey::from_str(miner_pk).unwrap(),
                 start_block: 10_000,
                 end_block: 20_000,
             },
@@ -208,8 +209,8 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         let sig = "46b26683b7e8706f2ae42ea950de63fdd7ee00f4f4dbdac4c328c33dfe2f4643e77d20bb706fde456e543b872bb5c7691728585a5337423ceb749ee7d3751a8f";
 
         let cmd = MinerVerifyPublish {
-            client: AnyKey::from_str(client_pk).unwrap(),
-            miner_key: AnyKey::from_str(miner_sk).unwrap(),
+            client: AnyPublicKey::from_str(client_pk).unwrap(),
+            miner_key: AnyPrivateKey::from_str(miner_sk).unwrap(),
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
             start_block: 10_000,
@@ -227,10 +228,10 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         use std::convert::TryInto;
 
         let client_sk = "bls12:3a6ec3badbbad93a25bd57a612f2875acef3cca518247a8534643a4ddb4fdc3e";
-        let client_sk = AnyKey::from_str(client_sk).unwrap();
+        let client_sk = AnyPrivateKey::from_str(client_sk).unwrap();
 
-        let client_pk = AnyKey::BlsPublic(
-            bls_signatures::PrivateKey::from_bytes(client_sk.as_bls_private().expect("impossible"))
+        let client_pk = AnyPublicKey::Bls(
+            bls_signatures::PrivateKey::from_bytes(client_sk.as_bls().expect("impossible"))
                 .unwrap()
                 .public_key()
                 .as_bytes()
@@ -239,10 +240,10 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         );
 
         let miner_sk = "bls12:93383d7666256663e092709cf19ca215d4e26355af1152a80955d34ea796a431";
-        let miner_sk = AnyKey::from_str(miner_sk).unwrap();
+        let miner_sk = AnyPrivateKey::from_str(miner_sk).unwrap();
 
         let miner_pk =
-            bls_signatures::PrivateKey::from_bytes(miner_sk.as_bls_private().expect("impossible"))
+            bls_signatures::PrivateKey::from_bytes(miner_sk.as_bls().expect("impossible"))
                 .unwrap()
                 .public_key();
 
@@ -253,7 +254,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
             client_key: client_sk,
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
-            miner: AnyKey::BlsPublic(miner_pk.as_bytes().try_into().unwrap()),
+            miner: AnyPublicKey::Bls(miner_pk.as_bytes().try_into().unwrap()),
             start_block: 10_000,
             end_block: 20_000,
         };
@@ -273,7 +274,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         let sig = cmd.run().unwrap().deal_signature;
 
         // with bls the signature is deterministic so we can include it here
-        assert_eq!(sig, hex!("a02c42129aa7acd8a815c32c4d84bb00b9ce05ea69e309729cf9d2f914443902c4adb77f74cb607aa727d8e798bf81b30250ce73223060aab73980efe26e7f9943d2383ba25648ca5fd91b3a7d4310808067578a88a6c042b6f26bc5a3213908"));
+        assert_eq!(sig, hex!("b68b782a408c662e7056b6562347cdb2700ca2b25590fcd44c8657fc04ed83513a12818b1586606457de6a2cc61200070838d6c43ee766aca48970eb493d6ffdc46452b034d6c41a6cac4dabe4b9303c6ad08dd1b5c84549270bd931b1437b9e"));
     }
 
     #[test]
@@ -295,8 +296,8 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
 
         for &(client_pk, miner_sk, sig) in input {
             let cmd = MinerVerifyPublish {
-                client: AnyKey::from_str(client_pk).unwrap(),
-                miner_key: AnyKey::from_str(miner_sk).unwrap(),
+                client: AnyPublicKey::from_str(client_pk).unwrap(),
+                miner_key: AnyPrivateKey::from_str(miner_sk).unwrap(),
                 comm_p: AnyHex::from_str("abcd").unwrap(),
                 padded_piece_size: 128,
                 start_block: 10_000,
@@ -324,10 +325,10 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         let miner_pk = "sr25519:d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d";
 
         let cmd = ClientProposeDeal {
-            client_key: AnyKey::from_str(client_sk).unwrap(),
+            client_key: AnyPrivateKey::from_str(client_sk).unwrap(),
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
-            miner: AnyKey::from_str(miner_pk).unwrap(),
+            miner: AnyPublicKey::from_str(miner_pk).unwrap(),
             start_block: 10_000,
             end_block: 20_000,
         };
@@ -336,7 +337,7 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
 
         let cmd = MinerVerifyPublish {
             client: proposable.deal_proposal.client,
-            miner_key: AnyKey::from_str(miner_sk).unwrap(),
+            miner_key: AnyPrivateKey::from_str(miner_sk).unwrap(),
             comm_p: proposable.deal_proposal.comm_p,
             padded_piece_size: proposable.deal_proposal.padded_piece_size,
             start_block: proposable.deal_proposal.start_block,
@@ -353,10 +354,10 @@ signature:           72d2df2584b12d4cbea791edd85346ac786c5640730b7ad6ae1f532444f
         let miner_pk = "bls12:81e8e7ccd05c30ac0c41e5fe8aa63a6e6f5dde28d0485592a2bcd84493496dba5c8752d46933339914f91f62af812351";
 
         ClientProposeDeal {
-            client_key: AnyKey::from_str(client_sk).unwrap(),
+            client_key: AnyPrivateKey::from_str(client_sk).unwrap(),
             comm_p: AnyHex::from_str("abcd").unwrap(),
             padded_piece_size: 128,
-            miner: AnyKey::from_str(miner_pk).unwrap(),
+            miner: AnyPublicKey::from_str(miner_pk).unwrap(),
             start_block: 10_000,
             end_block: 20_000,
         }

@@ -58,6 +58,24 @@ impl fmt::Debug for AnyPrivateKey {
     }
 }
 
+impl AnyPrivateKey {
+    #[allow(unused)]
+    pub(crate) fn as_sr25519(&self) -> Option<&[u8; 32]> {
+        match self {
+            AnyPrivateKey::Sr25519(x) => Some(x),
+            _ => None,
+        }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn as_bls(&self) -> Option<&[u8; 32]> {
+        match self {
+            AnyPrivateKey::Bls(x) => Some(x),
+            _ => None,
+        }
+    }
+}
+
 /// Lower level enumeration of supported keys for reading them from the command line for easy
 /// access. Later more secure ways to obtain the material can be implemented.
 ///
