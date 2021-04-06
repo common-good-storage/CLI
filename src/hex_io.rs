@@ -68,15 +68,7 @@ impl fmt::Debug for AnyPrivateKey {
 }
 
 impl AnyPrivateKey {
-    #[allow(unused)]
-    pub(crate) fn as_sr25519(&self) -> Option<&[u8; 32]> {
-        match self {
-            AnyPrivateKey::Sr25519(x) => Some(x),
-            _ => None,
-        }
-    }
-
-    #[allow(unused)]
+    #[cfg(test)]
     pub(crate) fn as_bls(&self) -> Option<&[u8; 32]> {
         match self {
             AnyPrivateKey::Bls(x) => Some(x),
