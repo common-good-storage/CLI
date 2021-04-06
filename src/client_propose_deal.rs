@@ -32,12 +32,12 @@ pub(crate) struct ClientProposeDeal {
 
 #[derive(Debug)]
 pub(crate) enum DealProposeError {
-    // none at this time before we add key types
+    InvalidKeyCombination,
 }
 
 impl fmt::Display for DealProposeError {
-    fn fmt(&self, _fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unreachable!()
+    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt.write_str("Invalid combination of key types")
     }
 }
 
@@ -73,7 +73,7 @@ impl ClientProposeDeal {
                 client_key: AnyKey::Sr25519(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner,
+                miner: miner @ AnyKey::Sr25519(_),
                 start_block,
                 end_block,
             } => {
@@ -106,28 +106,43 @@ impl ClientProposeDeal {
                 Ok(resp)
             }
             ClientProposeDeal {
-                client_key: AnyKey::Bls(client_sk),
+                client_key: AnyKey::BlsPrivate(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner,
+                miner: miner @ AnyKey::BlsPublic(_),
                 start_block,
                 end_block,
             } => {
+                use std::convert::TryInto;
+
                 let sk = bls_signatures::PrivateKey::from_bytes(&client_sk)
                     .expect("SecretKey is valid, cannot fail");
+
+                let pk = sk.public_key().as_bytes();
 
                 // TODO: start < end
 
                 let deal_proposal = DealProposal {
                     comm_p,
                     padded_piece_size,
-                    client: AnyKey::Bls(sk.as_bytes()),
+                    client: AnyKey::BlsPublic(pk.try_into().unwrap()),
                     miner,
                     start_block,
                     end_block,
                 };
 
-                let signature = sk.sign(&deal_proposal.encode()).as_bytes();
+                let doc = deal_proposal.encode();
+
+                let signed = {
+                    // Per https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
+                    // prefix the document with the public key in order to get unique messages for
+                    // each key
+                    let mut buffer = sk.public_key().as_bytes();
+                    buffer.extend(doc);
+                    buffer
+                };
+
+                let signature = sk.sign(&signed).as_bytes();
 
                 let resp = ProposableDeal {
                     deal_proposal,
@@ -136,6 +151,7 @@ impl ClientProposeDeal {
 
                 Ok(resp)
             }
+            _ => Err(DealProposeError::InvalidKeyCombination),
         }
     }
 }

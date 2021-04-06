@@ -69,6 +69,7 @@ impl MinerVerifyPublish {
 
                 let deal = {
                     // just concatenate these together
+                    // FIXME: this encodes the proposal twice
                     let mut deal = Vec::<u8>::with_capacity(
                         deal_proposal.encode().len() + orig_signature.len(),
                     );
@@ -82,12 +83,88 @@ impl MinerVerifyPublish {
                 let resp = PublishableDeal {
                     deal_proposal,
                     serialized_deal: deal,
-                    deal_signature: deal_sig,
+                    deal_signature: deal_sig.to_bytes().to_vec(),
                 };
 
                 Ok(resp)
             }
-            _ => todo!(),
+            MinerVerifyPublish {
+                client: AnyKey::BlsPublic(client_pk_arr),
+                miner_key: AnyKey::BlsPrivate(miner_sk_arr),
+                comm_p,
+                padded_piece_size,
+                start_block,
+                end_block,
+                signature: AnyHex(client_signature),
+            } => {
+                use bls_signatures::Serialize;
+                use std::convert::TryInto;
+
+                let client_pk = bls_signatures::PublicKey::from_bytes(&client_pk_arr)
+                    .expect("key conversion shouldn't fail");
+                let miner_sk = bls_signatures::PrivateKey::from_bytes(&miner_sk_arr)
+                    .expect("key conversion shouldn't fail");
+                let client_signature = bls_signatures::Signature::from_bytes(&client_signature)
+                    .map_err(|_| ProposalVerifyError::InvalidSignature)?;
+
+                let miner_pk = miner_sk.public_key();
+
+                let deal_proposal = DealProposal {
+                    comm_p,
+                    padded_piece_size,
+                    client: AnyKey::BlsPublic(client_pk_arr),
+                    miner: AnyKey::BlsPublic(miner_pk.as_bytes().try_into().unwrap()),
+                    start_block,
+                    end_block,
+                };
+
+                let deal_encoded = deal_proposal.encode();
+
+                let client_message = {
+                    // https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
+                    let mut buffer = client_pk.as_bytes();
+                    buffer.extend(&deal_encoded);
+                    buffer
+                };
+
+                if !client_pk.verify(client_signature, &client_message) {
+                    return Err(ProposalVerifyError::InvalidSignature);
+                }
+
+                let miner_message = {
+                    let mut buffer = miner_sk.public_key().as_bytes();
+                    buffer.extend(&deal_encoded);
+                    buffer
+                };
+
+                let miner_signature = miner_sk.sign(&miner_message);
+
+                assert!(miner_pk.verify(miner_signature, &miner_message));
+
+                // aggregated signatures cannot contain signatures of the same document, which is
+                // why the signed document/message is prefixed with signers public key. See more in https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
+                let multisig = bls_signatures::aggregate(&[client_signature, miner_signature])
+                    .expect("multisig construction failed");
+
+                assert_eq!(false, client_pk.verify(multisig, &client_message));
+                assert_eq!(false, miner_pk.verify(multisig, &miner_message));
+
+                assert!(bls_signatures::verify(
+                    &multisig,
+                    &[
+                        bls_signatures::hash(&client_message),
+                        bls_signatures::hash(&miner_message)
+                    ],
+                    &[client_pk, miner_pk],
+                ));
+
+                Ok(PublishableDeal {
+                    deal_proposal,
+                    serialized_deal: deal_encoded,
+                    deal_signature: multisig.as_bytes(),
+                })
+            }
+            _ => return Err(ProposalVerifyError::InvalidKeyCombination),
         }
     }
 }
@@ -95,6 +172,7 @@ impl MinerVerifyPublish {
 #[derive(Debug)]
 pub(crate) enum ProposalVerifyError {
     InvalidSignature,
+    InvalidKeyCombination,
 }
 
 impl fmt::Display for ProposalVerifyError {
@@ -103,6 +181,7 @@ impl fmt::Display for ProposalVerifyError {
         match self {
             // not sure if the nested reason matters?
             InvalidSignature => write!(fmt, "Invalid client signature"),
+            InvalidKeyCombination => write!(fmt, "Invalid or unsupported key combination"),
         }
     }
 }
@@ -113,7 +192,7 @@ impl std::error::Error for ProposalVerifyError {}
 pub(crate) struct PublishableDeal {
     deal_proposal: DealProposal,
     serialized_deal: Vec<u8>,
-    deal_signature: schnorrkel::sign::Signature,
+    deal_signature: Vec<u8>,
 }
 
 impl fmt::Display for PublishableDeal {
@@ -127,7 +206,7 @@ impl fmt::Display for PublishableDeal {
         writeln!(
             fmt,
             "signature:       {:?}",
-            HexString(&self.deal_signature.to_bytes()[..])
+            HexString(&self.deal_signature[..])
         )
     }
 }
