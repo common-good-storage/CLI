@@ -1,5 +1,7 @@
 ///! Command for the deal initiation proposal made by the client, off-chain.
-use super::{AnyHex, AnyKey, DealProposal, HexString, SIMPLE_PROPOSAL_CONTEXT};
+use super::{
+    AnyHex, AnyPrivateKey, AnyPublicKey, DealProposal, ProposableDeal, SIMPLE_PROPOSAL_CONTEXT,
+};
 use bls_signatures::Serialize;
 use codec::Encode;
 use std::fmt;
@@ -13,7 +15,7 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub(crate) struct ClientProposeDeal {
     /// Clients private key, "key_type:hex", e.g. "sr25519:{64 hex}".
-    pub client_key: AnyKey,
+    pub client_key: AnyPrivateKey,
     /// The padded payload CID; any hex content will do for this example.
     pub comm_p: AnyHex,
     /// Size of the payload with fr32 padding. Any u64 will do.
@@ -21,7 +23,7 @@ pub(crate) struct ClientProposeDeal {
     pub padded_piece_size: u64,
     /// Miners public key, "key_type:hex", e.g. "sr25519:{64 hex}".
     // miner's public key i.e. 32 bytes
-    pub miner: AnyKey,
+    pub miner: AnyPublicKey,
     /// BlockNumber to start the deal.
     // this type needs to match frame_system::BlockNumber defined in runtime
     pub start_block: u64,
@@ -43,37 +45,14 @@ impl fmt::Display for DealProposeError {
 
 impl std::error::Error for DealProposeError {}
 
-#[derive(Debug)]
-pub(crate) struct ProposableDeal {
-    pub deal_proposal: DealProposal,
-    // this should become vec<u8> or similar when we extend
-    pub signature: Vec<u8>,
-}
-
-impl fmt::Display for ProposableDeal {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(
-            fmt,
-            "client public key:   {:?}",
-            HexString(self.deal_proposal.client.as_ref())
-        )?;
-        writeln!(fmt, "deal proposal:       {:?}", self.deal_proposal)?;
-        writeln!(
-            fmt,
-            "signature:           {:?}",
-            HexString(&self.signature[..])
-        )
-    }
-}
-
 impl ClientProposeDeal {
     pub(crate) fn run(self) -> Result<ProposableDeal, DealProposeError> {
         match self {
             ClientProposeDeal {
-                client_key: AnyKey::Sr25519(client_sk),
+                client_key: AnyPrivateKey::Sr25519(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner: miner @ AnyKey::Sr25519(_),
+                miner: AnyPublicKey::Sr25519(miner_pk),
                 start_block,
                 end_block,
             } => {
@@ -85,10 +64,10 @@ impl ClientProposeDeal {
                 // TODO: start < end
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyKey::Sr25519(kp.public.to_bytes()),
-                    miner,
+                    client: kp.public.to_bytes().to_vec(),
+                    miner: miner_pk.to_vec(),
                     start_block,
                     end_block,
                 };
@@ -106,15 +85,13 @@ impl ClientProposeDeal {
                 Ok(resp)
             }
             ClientProposeDeal {
-                client_key: AnyKey::BlsPrivate(client_sk),
+                client_key: AnyPrivateKey::Bls(client_sk),
                 comm_p,
                 padded_piece_size,
-                miner: miner @ AnyKey::BlsPublic(_),
+                miner: AnyPublicKey::Bls(miner_pk),
                 start_block,
                 end_block,
             } => {
-                use std::convert::TryInto;
-
                 let sk = bls_signatures::PrivateKey::from_bytes(&client_sk)
                     .expect("SecretKey is valid, cannot fail");
 
@@ -123,26 +100,15 @@ impl ClientProposeDeal {
                 // TODO: start < end
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyKey::BlsPublic(pk.try_into().unwrap()),
-                    miner,
+                    client: pk,
+                    miner: miner_pk.to_vec(),
                     start_block,
                     end_block,
                 };
 
-                let doc = deal_proposal.encode();
-
-                let signed = {
-                    // Per https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
-                    // prefix the document with the public key in order to get unique messages for
-                    // each key
-                    let mut buffer = sk.public_key().as_bytes();
-                    buffer.extend(doc);
-                    buffer
-                };
-
-                let signature = sk.sign(&signed).as_bytes();
+                let signature = crate::bls::sign(&sk, &deal_proposal.encode()).as_bytes();
 
                 let resp = ProposableDeal {
                     deal_proposal,

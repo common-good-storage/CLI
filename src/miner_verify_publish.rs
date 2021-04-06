@@ -1,7 +1,8 @@
 ///! Command for the miner response to a client initiated deal proposal. After this command has
 ///! executed successfully, the deal would be ready to be published on-chain by the miner.
 use super::{
-    AnyHex, AnyKey, DealProposal, HexString, SIMPLE_DEAL_CONTEXT, SIMPLE_PROPOSAL_CONTEXT,
+    AnyHex, AnyPrivateKey, AnyPublicKey, DealProposal, PublishableDeal, SIMPLE_DEAL_CONTEXT,
+    SIMPLE_PROPOSAL_CONTEXT,
 };
 use codec::Encode;
 use std::fmt;
@@ -10,9 +11,9 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub(crate) struct MinerVerifyPublish {
     /// Clients public key, "key_type:hex", e.g. "sr25519:{64 hex}".
-    pub client: AnyKey,
+    pub client: AnyPublicKey,
     /// Miners private key, "key_type:hex", e.g. "sr25519:{64 hex}".
-    pub miner_key: AnyKey,
+    pub miner_key: AnyPrivateKey,
     /// The padded payload CID; any hex content will do for this example.
     pub comm_p: AnyHex,
     /// Miners public key, "key_type:hex", e.g. "sr25519:{64 hex}".
@@ -29,8 +30,8 @@ impl MinerVerifyPublish {
     pub(crate) fn run(self) -> Result<PublishableDeal, ProposalVerifyError> {
         match self {
             MinerVerifyPublish {
-                client: AnyKey::Sr25519(client_pk_arr),
-                miner_key: AnyKey::Sr25519(miner_sk_arr),
+                client: AnyPublicKey::Sr25519(client_pk_arr),
+                miner_key: AnyPrivateKey::Sr25519(miner_sk_arr),
                 comm_p,
                 padded_piece_size,
                 start_block,
@@ -51,10 +52,10 @@ impl MinerVerifyPublish {
                 // TODO: same verification for the deal which was done already by client
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyKey::Sr25519(client_pk_arr),
-                    miner: AnyKey::Sr25519(miner_kp.public.to_bytes()),
+                    client: client_pk_arr.to_vec(),
+                    miner: miner_kp.public.to_bytes().to_vec(),
                     start_block,
                     end_block,
                 };
@@ -89,16 +90,16 @@ impl MinerVerifyPublish {
                 Ok(resp)
             }
             MinerVerifyPublish {
-                client: AnyKey::BlsPublic(client_pk_arr),
-                miner_key: AnyKey::BlsPrivate(miner_sk_arr),
+                client: AnyPublicKey::Bls(client_pk_arr),
+                miner_key: AnyPrivateKey::Bls(miner_sk_arr),
                 comm_p,
                 padded_piece_size,
                 start_block,
                 end_block,
                 signature: AnyHex(client_signature),
             } => {
+                use crate::bls;
                 use bls_signatures::Serialize;
-                use std::convert::TryInto;
 
                 let client_pk = bls_signatures::PublicKey::from_bytes(&client_pk_arr)
                     .expect("key conversion shouldn't fail");
@@ -110,52 +111,31 @@ impl MinerVerifyPublish {
                 let miner_pk = miner_sk.public_key();
 
                 let deal_proposal = DealProposal {
-                    comm_p,
+                    comm_p: comm_p.as_ref().to_vec(),
                     padded_piece_size,
-                    client: AnyKey::BlsPublic(client_pk_arr),
-                    miner: AnyKey::BlsPublic(miner_pk.as_bytes().try_into().unwrap()),
+                    client: client_pk_arr.to_vec(),
+                    miner: miner_pk.as_bytes().to_vec(),
                     start_block,
                     end_block,
                 };
 
                 let deal_encoded = deal_proposal.encode();
 
-                let client_message = {
-                    // https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
-                    let mut buffer = client_pk.as_bytes();
-                    buffer.extend(&deal_encoded);
-                    buffer
-                };
-
-                if !client_pk.verify(client_signature, &client_message) {
+                if !bls::verify(&client_pk, client_signature, &deal_encoded) {
                     return Err(ProposalVerifyError::InvalidSignature);
                 }
 
-                let miner_message = {
-                    let mut buffer = miner_sk.public_key().as_bytes();
-                    buffer.extend(&deal_encoded);
-                    buffer
-                };
-
-                let miner_signature = miner_sk.sign(&miner_message);
-
-                assert!(miner_pk.verify(miner_signature, &miner_message));
+                let miner_signature = bls::sign(&miner_sk, &deal_encoded);
 
                 // aggregated signatures cannot contain signatures of the same document, which is
                 // why the signed document/message is prefixed with signers public key. See more in https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-02#section-3.2
                 let multisig = bls_signatures::aggregate(&[client_signature, miner_signature])
                     .expect("multisig construction failed");
 
-                assert_eq!(false, client_pk.verify(multisig, &client_message));
-                assert_eq!(false, miner_pk.verify(multisig, &miner_message));
-
-                assert!(bls_signatures::verify(
+                assert!(bls::verify_aggregate(
                     &multisig,
-                    &[
-                        bls_signatures::hash(&client_message),
-                        bls_signatures::hash(&miner_message)
-                    ],
-                    &[client_pk, miner_pk],
+                    &deal_encoded,
+                    &[client_pk, miner_pk]
                 ));
 
                 Ok(PublishableDeal {
@@ -187,26 +167,3 @@ impl fmt::Display for ProposalVerifyError {
 }
 
 impl std::error::Error for ProposalVerifyError {}
-
-#[derive(Debug)]
-pub(crate) struct PublishableDeal {
-    deal_proposal: DealProposal,
-    serialized_deal: Vec<u8>,
-    deal_signature: Vec<u8>,
-}
-
-impl fmt::Display for PublishableDeal {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(fmt, "deal proposal:   {:?}", self.deal_proposal)?;
-        writeln!(
-            fmt,
-            "deal:            {:?}",
-            HexString(self.serialized_deal.as_slice())
-        )?;
-        writeln!(
-            fmt,
-            "signature:       {:?}",
-            HexString(&self.deal_signature[..])
-        )
-    }
-}
